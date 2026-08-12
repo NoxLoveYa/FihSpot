@@ -10,6 +10,7 @@ import { Input } from '../components/Input';
 import { Logo } from '../components/Logo';
 import { GoogleButton } from '../components/GoogleButton';
 import { Spinner } from '../components/Spinner';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 export function RegisterPage() {
   const [name, setName] = useState('');
@@ -42,6 +43,9 @@ export function RegisterPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-brand-50 px-4 py-10 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900">
+      <div className="fixed right-4 top-4 z-50">
+        <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}

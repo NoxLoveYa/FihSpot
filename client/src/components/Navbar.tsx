@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -17,6 +18,7 @@ export function Navbar() {
       </button>
 
       <div className="pointer-events-auto flex items-center gap-2">
+        <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
         {user ? (
           <>
             <div className="hidden items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 shadow-soft backdrop-blur-md sm:flex dark:bg-slate-800/80">

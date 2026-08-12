@@ -9,7 +9,7 @@ Site web responsive mobile où les utilisateurs authentifiés ajoutent et consul
 - **Frontend** : React 18 + TypeScript + Vite 6, React Router v7, `react-leaflet` + Leaflet 1.9, Tailwind CSS 3, Framer Motion
 - **Backend** : Express 4 + TypeScript (tsx en dev, tsc → dist), Prisma ORM, JWT (jsonwebtoken)
 - **Auth** : email/mot-de-passe (bcryptjs) + Google OAuth (flux serveur, validation du token via `tokeninfo`)
-- **Photos** : upload local via `multer` 2.x, servi statiquement par Express (`/uploads`)
+- **Photos** : upload local via `multer` 2.x, servi statiquement par Express (`/uploads`) ; les fichiers sont **partagés entre dev et Docker** via un bind mount (`./server/uploads`), et **supprimés du disque** quand une photo ou un POI est supprimé.
 - **Base de données** : PostgreSQL 16 (Docker Compose)
 - **Monorepo** : npm workspaces (`client/` + `server/`), scripts racine
 
@@ -26,28 +26,35 @@ FihSpot/
 ├── docker-compose.yml            # stack complète : db + server + client (nginx)
 ├── client/
 │   ├── Dockerfile                # multi-stage : build Vite → nginx
-│   ├── nginx.conf                # SPA fallback + proxy /api et /uploads → server:3000
-│   ├── index.html                # fonts Inter, CSS Leaflet
-│   ├── vite.config.ts            # proxy dev /api + /uploads → localhost:3000
+│   ├── nginx.conf                # SPA fallback + proxy /api et /uploads → server:3000 + headers SW
+│   ├── index.html                # fonts Inter, CSS Leaflet, apple-touch-icon
+│   ├── vite.config.ts            # proxy dev /api + /uploads → localhost:3000 ; plugin PWA (Workbox)
 │   ├── tailwind.config.js        # tokens (palette brand, radii, ombres, dark mode class)
 │   ├── postcss.config.js
 │   ├── tsconfig.json
-│   ├── public/favicon.svg
+│   ├── scripts/generate-icons.mjs  # génère les icônes PNG PWA depuis favicon.svg (sharp)
+│   ├── public/
+│   │   ├── favicon.svg
+│   │   ├── pwa-192x192.png / pwa-512x512.png / apple-touch-icon.png
 │   └── src/
-│       ├── main.tsx              # bootstrap React
-│       ├── App.tsx               # AuthProvider + ToastProvider + router + transitions de page
-│       ├── index.css             # Tailwind + styles Leaflet (marqueurs, dark map, reduced-motion)
+│       ├── main.tsx              # bootstrap React + registerSW (PWA)
+│       ├── App.tsx               # AuthProvider + ToastProvider + router + transitions de page + OfflineBanner
+│       ├── index.css             # Tailwind + styles Leaflet (marqueurs, dark map, marker fade)
+│       ├── vite-env.d.ts         # types vite + vite-plugin-pwa/client
 │       ├── api/
-│       │   ├── client.ts         # wrapper fetch + gestion token JWT (localStorage) + ApiError
+│       │   ├── client.ts         # wrapper fetch + token JWT + cache user + erreurs offline-safe
 │       │   └── types.ts          # User, PoI, PoISummary, Comment, Photo, Bounds
 │       ├── context/
-│       │   ├── AuthContext.tsx   # login/register/googleLogin/logout + restauration session
-│       │   └── ToastContext.tsx  # toasts animés (AnimatePresence)
+│       │   ├── AuthContext.tsx   # session depuis cache (hors-ligne), revalidation en arrière-plan
+│       │   ├── ToastContext.tsx  # toasts animés (AnimatePresence)
+│       │   └── ThemeContext.tsx  # thème light/dark persisté (localStorage) + class "dark"
 │       ├── hooks/useMediaQuery.ts
 │       ├── components/
 │       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte
+│       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème)
+│       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
 │       │   ├── MapView.tsx       # carte Leaflet, marqueurs par catégorie, bounds, géoloc, mode ajout
-│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop)
+│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh
 │       │   ├── AddPoiPanel.tsx   # formulaire création après placement sur la carte
 │       │   ├── GoogleButton.tsx  # Google Identity Services (bouton "Continuer avec Google")
 │       │   ├── ProtectedRoute.tsx
@@ -97,11 +104,10 @@ Relations : User `1-n` PoI/Comment/Photo ; PoI `1-n` Comment/Photo.
 ```yaml
 services:
   db:      # postgres:16-alpine, port 5432, volume pgdata, healthcheck pg_isready
-  server:  # Dockerfile server, env (DATABASE_URL→db:5432, JWT_SECRET, GOOGLE_*), volume uploads, port 3000
+  server:  # Dockerfile server, env (DATABASE_URL→db:5432, JWT_SECRET, GOOGLE_*), bind mount ./server/uploads → /app/server/uploads, port 3000
   client:  # Dockerfile client (nginx), port 8080:80, proxy /api + /uploads → server
 volumes:
   pgdata:
-  uploads:
 ```
 
 | Command | Description |
@@ -136,7 +142,7 @@ volumes:
 | POST | `/api/pois/:id/comments` | ajouter un commentaire | ✅ |
 | DELETE | `/api/pois/comments/:commentId` | supprimer | ✅ auteur |
 | POST | `/api/pois/:id/photos` | upload multipart `photo` (image, ≤5 Mo) | ✅ |
-| DELETE | `/api/pois/photos/:photoId` | supprimer | ✅ auteur |
+| DELETE | `/api/pois/photos/:photoId` | supprimer (DB **et fichier disque**) | ✅ auteur |
 | GET | `/uploads/:file` | photos servies statiquement | – |
 
 ## UX frontend — design & animations (implémenté)
@@ -144,7 +150,7 @@ volumes:
 ### Direction artistique
 - **Mobile-first**, carte plein écran comme point focal ; fond clair neutre (`#f8fafc`), accent **indigo** (`brand-600`), police **Inter**.
 - **Tokens Tailwind** dans `tailwind.config.js` : palette `brand`, rayons (`rounded-2xl`/`3xl`), ombres `soft`/`float`, animations `fade-in`/`slide-up`.
-- **Dark mode** préparé (stratégie `class`) : styles dark sur body, nav, drawer, inputs, cartes (filter invert sur Leaflet).
+- **Dark mode** : implémenté — `ThemeContext` (stratégie `class`), bascule ☀️/🌙 visible dans la **Navbar** et sur les pages Login/Register, **persistée** (`fihspot_theme`) avec fallback `prefers-color-scheme` + script anti-flash dans `index.html`.
 - Overlays glassmorphism (Navbar, bannière "chargement"), focus rings accessibles, micro-hovers.
 
 ### Animations (Framer Motion)
@@ -158,9 +164,40 @@ volumes:
 
 ### Responsive & ergonomie tactile
 - **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
+- **FAB masqué quand une fiche POI est ouverte** (`!selectedId`) pour ne pas obstruer la vue ; réapparaît à la fermeture du drawer.
 - **Desktop** : side-panel 420 px à droite, carte visible à côté.
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
 - Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout.
+
+## Hors-ligne & cache-first (PWA, implémenté)
+
+### Objectif
+- **Hors-ligne** : accès au site sans connexion — app shell, spots, fiches (photos + commentaires) et tuiles OSM des zones déjà visitées restent consultables.
+- **En ligne** : les données POI sont servies **fraîches du serveur en priorité** (NetworkFirst) — le front et le cache sont toujours synchronisés avec le serveur (pas de commentaires/photos obsolètes).
+
+### Mise en œuvre — `vite-plugin-pwa` (Workbox, `generateSW`)
+- **Precache** de l'app shell : `**/*.{js,css,html,svg,png,webmanifest}` ; `navigateFallback: /index.html` (avec `denylist /api`, `/uploads`).
+- **Manifest PWA** : name *FihSpot*, `theme_color #4f46e5`, `display standalone`, icônes 192/512 (+ maskable) et `apple-touch-icon` générées par `client/scripts/generate-icons.mjs` (sharp) — `npm run icons -w client`.
+- **Runtime caching** (GET publics uniquement ; `/api/auth/*` jamais caché) :
+  | Ressource | Stratégie | Limite |
+  |---|---|---|
+  | Liste `/api/pois` | NetworkFirst (timeout 3 s) | 50 / 7 j |
+  | Fiche `/api/pois/:id` (photos + commentaires) | NetworkFirst (timeout 3 s) | 100 / 7 j |
+  | Photos `/uploads/*` | CacheFirst | 500 / 30 j |
+  | Tuiles `tile.openstreetmap.org` | CacheFirst | 1000 / 30 j |
+- **Fraîcheur des POI** : liste et fiches en **NetworkFirst** — en ligne, le serveur est interrogé en priorité et la réponse **met à jour le front (état React) et le cache SW** ; un POI/commentaire/photo supprimé côté serveur renvoie un `404` (non caché) qui ferme la fiche au lieu d'afficher des données obsolètes. Le cache ne sert que **hors-ligne** (ou si le réseau dépasse 3 s).
+- **`registerSW({ immediate: true })`** dans `main.tsx` (auto-update).
+- **nginx** : `sw.js` / `workbox-*.js` / `manifest.webmanifest` servis avec `Cache-Control: no-cache` + `Service-Worker-Allowed: /`.
+
+### Session JWT persistante hors-ligne
+- Token JWT + profil user (`fihspot_user`) stockés en localStorage.
+- Au boot : le profil **caché s'affiche immédiatement**, `api.me()` revalide en arrière-plan ; un `401` seul déconnecte, une **erreur réseau conserve la session** (plus de `clearToken()` abusif).
+- Retour en ligne (`online` event) → revalidation automatique de la session et des POI.
+
+### Comportement hors-ligne
+- **Lecture seule** : spots, fiches, photos, commentaires et tuiles visitées visibles ; bandeau `OfflineBanner` ("Hors ligne — affichage des données en cache").
+- **Écritures** (créer POI / commentaire / upload photo) : échouent avec un toast **« Pas de connexion »** (`ApiError(0)`).
+- **Fade de rafraîchissement** : quand les données fraîches remplacent le cache, fondu doux sur le contenu du drawer (`PoiDrawer`) et sur les nouveaux marqueurs (`markerFadeIn` CSS).
 
 ## Statut & état
 | Élément | État |
@@ -173,6 +210,13 @@ volumes:
 | Fiche POI (drawer animé, commentaires, photos, bouton Google Maps, suppression) | ✅ implémenté |
 | Ajout de POI (placement clic + formulaire) | ✅ implémenté |
 | Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
+| **Dark mode** : toggle ☀️/🌙 visible (Navbar + pages auth) + persistance (`fihspot_theme`) | ✅ implémenté |
+| **FAB masqué quand une fiche POI est ouverte** | ✅ implémenté |
+| **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
+| **Cache hors-ligne + fraîcheur en ligne** (spots/fiches/photos/tuiles, NetworkFirst + CacheFirst) | ✅ implémenté |
+| **Session JWT hors-ligne** (profil en cache, pas de logout sur erreur réseau) | ✅ implémenté |
+| **Uploads partagés dev/Docker** (bind mount) + suppression du fichier au delete photo/POI | ✅ implémenté |
+| **OfflineBanner + lecture seule hors-ligne** + fade de rafraîchissement | ✅ implémenté |
 | Stack Docker complète (`docker compose up --build` → :8080) | ✅ testé |
 | Build client + serveur | ✅ OK |
 | Compte de test | `demo@fihspot.app` / `demo1234` |
@@ -180,6 +224,6 @@ volumes:
 ## À configurer / à faire (optionnel)
 - **Google OAuth** : créer un projet Google Cloud, un OAuth Client ID, puis remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (dans `server/.env` en dev, ou variables d'environnement Compose). Tant que vides, le bouton Google est masqué.
 - **`JWT_SECRET`** : générer un secret fort et le définir (dev + Compose).
+- **HTTPS** : le service worker PWA n'est actif qu'en HTTPS (ou localhost). En production réelle, configurer un certificat (ex. Caddy/Traefik) devant nginx.
 - **Tests d'API** : supertest (non ajouté à ce jour).
-- **Dark mode toggle** : le CSS dark existe, mais le bouton de bascule persisté reste à brancher.
 - **Recherche / filtres par catégorie** sur la carte : prévus en roadmap, non implémentés.

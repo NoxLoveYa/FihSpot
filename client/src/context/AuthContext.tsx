@@ -1,7 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../api/types';
-import { api, clearToken, setToken } from '../api/client';
+import {
+  api,
+  ApiError,
+  clearCachedUser,
+  clearToken,
+  getCachedUser,
+  setCachedUser,
+  setToken,
+} from '../api/client';
 
 interface AuthContextValue {
   user: User | null;
@@ -15,24 +23,42 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => getCachedUser());
   const [loading, setLoading] = useState(true);
 
+  const revalidate = useCallback(async () => {
+    try {
+      const { user: fresh } = await api.me();
+      setUser(fresh);
+      setCachedUser(fresh);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        clearCachedUser();
+        setUser(null);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    const token = localStorage.getItem('fihspot_token');
-    if (!token) {
+    if (!getCachedUser() && !localStorage.getItem('fihspot_token')) {
       setLoading(false);
       return;
     }
-    api
-      .me()
-      .then(({ user }) => setUser(user))
-      .catch(() => clearToken())
-      .finally(() => setLoading(false));
-  }, []);
+    revalidate().finally(() => setLoading(false));
+  }, [revalidate]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      revalidate();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [revalidate]);
 
   const applyAuth = useCallback((token: string, user: User) => {
     setToken(token);
+    setCachedUser(user);
     setUser(user);
   }, []);
 
@@ -62,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearToken();
+    clearCachedUser();
     setUser(null);
   }, []);
 

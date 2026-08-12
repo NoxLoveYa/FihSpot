@@ -25,7 +25,7 @@ export function GoogleButton() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.authConfig().then(({ googleClientId }) => setGoogleClientId(googleClientId));
+    api.authConfig().then(({ googleClientId }) => setGoogleClientId(googleClientId)).catch(() => {});
   }, []);
 
   useEffect(() => {

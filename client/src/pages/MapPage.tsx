@@ -103,7 +103,7 @@ export function MapPage() {
         }}
       />
 
-      {user && (
+      {user && !selectedId && (
         <button
           onClick={() => {
             setAdding((a) => !a);

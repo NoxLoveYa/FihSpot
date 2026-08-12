@@ -3,6 +3,7 @@ import type { Bounds, Comment, Photo, PoI, PoISummary, User } from './types';
 const API_URL = '/api';
 
 const TOKEN_KEY = 'fihspot_token';
+const USER_KEY = 'fihspot_user';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -14,6 +15,23 @@ export function setToken(token: string) {
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedUser(user: User) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function clearCachedUser() {
+  localStorage.removeItem(USER_KEY);
 }
 
 export class ApiError extends Error {
@@ -36,10 +54,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new ApiError(0, 'Pas de connexion');
+  }
 
   if (res.status === 401) {
     clearToken();
+    clearCachedUser();
   }
 
   if (!res.ok) {

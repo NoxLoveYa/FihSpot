@@ -33,6 +33,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [poi, setPoi] = useState<PoI | null>(null);
   const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState(0);
   const [comment, setComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -44,6 +45,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
     try {
       const { poi } = await api.getPoi(poiId);
       setPoi(poi);
+      setVersion((v) => v + 1);
     } catch (e) {
       toast(e instanceof ApiError ? e.message : 'Erreur de chargement', 'error');
       onClose();
@@ -154,7 +156,13 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                 <Skeleton className="h-24 w-full" />
               </div>
             ) : (
-              <>
+              <motion.div
+                key={version}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="flex h-full flex-col"
+              >
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-700">
                   <div className="min-w-0">
                     {poi.category && (
@@ -285,7 +293,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                     </Button>
                   </div>
                 )}
-              </>
+              </motion.div>
             )}
           </motion.aside>
         </>

@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f8fafc" />
     <title>FihSpot — Points d'intérêt</title>
@@ -20,6 +21,16 @@
     />
   </head>
   <body class="h-full">
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('fihspot_theme');
+          var d = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          if (t === 'dark' || t === 'light') d = t;
+          if (d === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
     <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

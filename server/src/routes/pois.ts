@@ -1,10 +1,19 @@
 import { Router } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
+import { config } from '../config';
 
 const router = Router();
+
+function unlinkUpload(url: string) {
+  const filename = path.basename(url);
+  const filePath = path.join(config.uploadsDir, filename);
+  fs.promises.unlink(filePath).catch(() => {});
+}
 
 const poiInclude = {
   createdBy: { select: { id: true, name: true, avatarUrl: true } },
@@ -124,11 +133,16 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
-    const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
+    const poi = await prisma.poI.findUnique({
+      where: { id: req.params.id },
+      include: { photos: { select: { url: true } } },
+    });
     if (!poi) throw new ApiError(404, 'Point d\'intérêt introuvable');
     if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
 
+    const photoUrls = poi.photos.map((p) => p.url);
     await prisma.poI.delete({ where: { id: poi.id } });
+    photoUrls.forEach(unlinkUpload);
     res.status(204).end();
   } catch (e) {
     next(e);
@@ -202,6 +216,7 @@ router.delete('/photos/:photoId', requireAuth, async (req, res, next) => {
     if (photo.userId !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
 
     await prisma.photo.delete({ where: { id: photo.id } });
+    unlinkUpload(photo.url);
     res.status(204).end();
   } catch (e) {
     next(e);
