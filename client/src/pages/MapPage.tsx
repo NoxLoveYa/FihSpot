@@ -3,6 +3,7 @@ import type { LatLng, Map } from 'leaflet';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { latLng } from 'leaflet';
+import { useTranslation } from 'react-i18next';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +17,7 @@ import { Navbar } from '../components/Navbar';
 import { FullScreenLoader } from '../components/Spinner';
 
 export function MapPage() {
+  const { t } = useTranslation();
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,12 +46,12 @@ export function MapPage() {
         const { pois } = await api.listPois(bounds);
         setPois(pois);
       } catch (e) {
-        toast('Impossible de charger les points', 'error');
+        toast(t('map.loadError'), 'error');
       } finally {
         setInitialLoading(false);
       }
     },
-    [toast],
+    [toast, t],
   );
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export function MapPage() {
       {initialLoading && (
         <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
           <div className="rounded-xl bg-white/90 px-4 py-2 text-sm font-medium text-slate-500 shadow-soft backdrop-blur">
-            Chargement des points…
+            {t('map.loading')}
           </div>
         </div>
       )}
@@ -163,7 +165,7 @@ export function MapPage() {
             setDraftPosition(null);
             setSelectedId(null);
           }}
-          aria-label={adding ? 'Annuler l\'ajout' : 'Ajouter un point'}
+          aria-label={adding ? t('map.cancelAdd') : t('map.addPoi')}
           className="fixed bottom-6 right-4 z-[1500] grid h-14 w-14 place-items-center rounded-full bg-brand-600 text-2xl text-white shadow-float transition-all hover:bg-brand-700 active:scale-95"
         >
           <motion.span

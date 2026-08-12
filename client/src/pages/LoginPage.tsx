@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ApiError } from '../api/client';
@@ -11,8 +12,10 @@ import { Logo } from '../components/Logo';
 import { GoogleButton } from '../components/GoogleButton';
 import { Spinner } from '../components/Spinner';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { LanguageToggle } from '../components/LanguageToggle';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,10 +30,10 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      toast('Bienvenue !', 'success');
+      toast(t('auth.welcome'), 'success');
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur de connexion');
+      setError(err instanceof ApiError ? err.message : t('auth.loginError'));
     } finally {
       setLoading(false);
     }
@@ -38,8 +41,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-emerald-50 px-4 py-10 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-      <div className="fixed right-4 top-4 z-50">
+      <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
         <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
+        <LanguageToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
       </div>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -50,7 +54,7 @@ export function LoginPage() {
         <div className="mb-6 flex flex-col items-center gap-2">
           <Logo className="h-10 w-10 text-brand-600" />
           <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">FihSpot</h1>
-          <p className="text-sm text-slate-400">Connectez-vous pour explorer</p>
+          <p className="text-sm text-slate-400">{t('auth.loginSubtitle')}</p>
         </div>
 
         {error && (
@@ -65,15 +69,15 @@ export function LoginPage() {
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Input
-            label="Email"
+            label={t('fields.email')}
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="vous@exemple.com"
+            placeholder={t('fields.emailPlaceholder')}
           />
           <Input
-            label="Mot de passe"
+            label={t('fields.password')}
             type="password"
             required
             value={password}
@@ -81,22 +85,22 @@ export function LoginPage() {
             placeholder="••••••••"
           />
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? <Spinner /> : 'Se connecter'}
+            {loading ? <Spinner /> : t('auth.signIn')}
           </Button>
         </form>
 
         <div className="my-5 flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
           <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          ou
+          {t('auth.or')}
           <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
         <GoogleButton />
 
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          Pas encore de compte ?{' '}
+          {t('auth.noAccount')}{' '}
           <Link to="/register" className="font-semibold text-brand-600 hover:underline">
-            Créer un compte
+            {t('auth.createAccount')}
           </Link>
         </p>
       </motion.div>

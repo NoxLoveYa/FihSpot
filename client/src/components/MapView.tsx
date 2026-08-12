@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import type { LatLng, Map as LeafletMap } from 'leaflet';
+import { useTranslation } from 'react-i18next';
 import type { Bounds, PoISummary } from '../api/types';
 
 const categoryColors: Record<string, string> = {
@@ -146,6 +147,7 @@ export function MapView({
   onSelect,
   onPick,
 }: MapViewProps) {
+  const { t } = useTranslation();
   const center: [number, number] = [48.8566, 2.3522];
   const draftIcon = useMemo(() => makeIcon(null), []);
 
@@ -205,7 +207,7 @@ export function MapView({
       {adding && (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] flex justify-center">
           <div className="pointer-events-auto rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-float">
-            Cliquez sur la carte pour placer le point
+            {t('map.clickToPlace')}
           </div>
         </div>
       )}

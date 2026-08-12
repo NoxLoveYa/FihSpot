@@ -2,21 +2,13 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LatLng } from 'leaflet';
+import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Spinner } from './Spinner';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-
-const categories = [
-  { value: '', label: 'Général' },
-  { value: 'culture', label: '🏛 Culture' },
-  { value: 'nature', label: '🌿 Nature' },
-  { value: 'food', label: '🍽 Restaurants' },
-  { value: 'sport', label: '⚽ Sport' },
-  { value: 'shop', label: '🛍 Boutiques' },
-];
 
 interface AddPoiPanelProps {
   position: LatLng | null;
@@ -25,6 +17,7 @@ interface AddPoiPanelProps {
 }
 
 export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -33,12 +26,21 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
+  const categories = [
+    { value: '', label: t('categories.general') },
+    { value: 'culture', label: `🏛 ${t('categories.culture')}` },
+    { value: 'nature', label: `🌿 ${t('categories.nature')}` },
+    { value: 'food', label: `🍽 ${t('categories.food')}` },
+    { value: 'sport', label: `⚽ ${t('categories.sport')}` },
+    { value: 'shop', label: `🛍 ${t('categories.shop')}` },
+  ];
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!position) return;
     setError('');
     if (!name.trim()) {
-      setError('Le nom est requis');
+      setError(t('addPoi.nameRequired'));
       return;
     }
     setSaving(true);
@@ -50,10 +52,10 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
         lat: position.lat,
         lng: position.lng,
       });
-      toast('Point d\'intérêt créé !', 'success');
+      toast(t('addPoi.created'), 'success');
       onCreated();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur de création');
+      setError(err instanceof ApiError ? err.message : t('addPoi.error'));
     } finally {
       setSaving(false);
     }
@@ -81,7 +83,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
         }`}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Nouveau point</h2>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t('addPoi.title')}</h2>
           <button
             type="button"
             onClick={onCancel}
@@ -97,19 +99,19 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
 
         {error && <p className="text-sm font-medium text-rose-500">{error}</p>}
 
-        <Input label="Nom" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Café du port" />
+        <Input label={t('fields.name')} required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('addPoi.namePlaceholder')} />
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">Description</span>
+          <span className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">{t('addPoi.description')}</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Pourquoi ce lieu est intéressant ?"
+            placeholder={t('addPoi.descriptionPlaceholder')}
             className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">Catégorie</span>
+          <span className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">{t('addPoi.category')}</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -124,7 +126,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
         </label>
 
         <Button type="submit" disabled={saving} className="mt-2 w-full">
-          {saving ? <Spinner /> : 'Créer le point'}
+          {saving ? <Spinner /> : t('addPoi.create')}
         </Button>
         </motion.form>
         </>

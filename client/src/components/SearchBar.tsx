@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { Spinner } from './Spinner';
@@ -18,6 +19,7 @@ interface SearchBarProps {
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
 export function SearchBar({ onSelect }: SearchBarProps) {
+  const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,29 +38,29 @@ export function SearchBar({ onSelect }: SearchBarProps) {
 
     const controller = new AbortController();
     abortRef.current = controller;
-    const t = setTimeout(async () => {
+    const timeoutId = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `${NOMINATIM_URL}?format=jsonv2&limit=5&accept-language=fr&q=${encodeURIComponent(query.trim())}`;
+        const url = `${NOMINATIM_URL}?format=jsonv2&limit=5&accept-language=${i18n.language}&q=${encodeURIComponent(query.trim())}`;
         const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) throw new ApiError(res.status, 'Erreur de recherche');
+        if (!res.ok) throw new ApiError(res.status, t('search.error'));
         const data = (await res.json()) as NominatimResult[];
         setResults(data);
         setOpen(true);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         setResults([]);
-        toast('Pas de connexion', 'error');
+        toast(t('errors.noConnection'), 'error');
       } finally {
         setLoading(false);
       }
     }, 350);
 
     return () => {
-      clearTimeout(t);
+      clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [query, toast]);
+  }, [query, toast, t, i18n]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -98,7 +100,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Rechercher une ville, un lieu…"
+          placeholder={t('search.placeholder')}
           className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
         />
         {loading ? (
@@ -110,7 +112,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
                 setQuery('');
                 setOpen(false);
               }}
-              aria-label="Effacer"
+              aria-label={t('search.clear')}
               className="grid h-6 w-6 place-items-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
             >
               ✕

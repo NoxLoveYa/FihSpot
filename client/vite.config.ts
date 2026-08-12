@@ -9,14 +9,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'FihSpot — Points d\'intérêt',
+        name: 'FihSpot — Points of Interest',
         short_name: 'FihSpot',
-        description: 'Explorez et partagez des points d\'intérêt sur une carte.',
+        description: 'Explore and share points of interest on a map.',
         theme_color: '#4f46e5',
         background_color: '#f8fafc',
         display: 'standalone',
         start_url: '/',
-        lang: 'fr',
+        lang: 'en',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },

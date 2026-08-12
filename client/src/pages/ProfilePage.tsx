@@ -1,28 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import type { UserContent } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Spinner, Skeleton } from '../components/Spinner';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { LanguageToggle } from '../components/LanguageToggle';
+import i18n from '../i18n';
 
 type Tab = 'pois' | 'comments' | 'photos';
 
-const categoryLabels: Record<string, string> = {
-  culture: 'Culture',
-  nature: 'Nature',
-  food: 'Restaurants',
-  sport: 'Sport',
-  shop: 'Boutiques',
-};
-
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function ProfilePage() {
+  const { t } = useTranslation();
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -36,9 +32,9 @@ export function ProfilePage() {
     api
       .meContent()
       .then((data) => setContent(data))
-      .catch((e) => toast(e instanceof ApiError ? e.message : 'Erreur de chargement', 'error'))
+      .catch((e) => toast(e instanceof ApiError ? e.message : t('profile.loadError'), 'error'))
       .finally(() => setLoading(false));
-  }, [toast]);
+  }, [toast, t]);
 
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -47,9 +43,9 @@ export function ProfilePage() {
     try {
       const { user: updated } = await api.uploadAvatar(file);
       updateUser(updated);
-      toast('Photo de profil mise à jour', 'success');
+      toast(t('profile.avatarUpdated'), 'success');
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : 'Erreur d\'upload', 'error');
+      toast(err instanceof ApiError ? err.message : t('profile.uploadError'), 'error');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -64,9 +60,9 @@ export function ProfilePage() {
   );
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'pois', label: 'Points', count: content?.stats.pois ?? 0 },
-    { key: 'comments', label: 'Commentaires', count: content?.stats.comments ?? 0 },
-    { key: 'photos', label: 'Photos', count: content?.stats.photos ?? 0 },
+    { key: 'pois', label: t('profile.points'), count: content?.stats.pois ?? 0 },
+    { key: 'comments', label: t('profile.comments'), count: content?.stats.comments ?? 0 },
+    { key: 'photos', label: t('profile.photos'), count: content?.stats.photos ?? 0 },
   ];
 
   return (
@@ -79,10 +75,13 @@ export function ProfilePage() {
           <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2">
             <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Retour
+          {t('profile.back')}
         </button>
-        <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">Mon profil</h1>
-        <ThemeToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
+        <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">{t('profile.title')}</h1>
+        <div className="flex items-center gap-2">
+          <ThemeToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
+          <LanguageToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
+        </div>
       </header>
 
       <div className="mx-auto w-full max-w-2xl px-4 py-6">
@@ -105,8 +104,8 @@ export function ProfilePage() {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              aria-label="Changer la photo de profil"
-              title="Changer la photo de profil"
+              aria-label={t('profile.changePhoto')}
+              title={t('profile.changePhoto')}
               className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 shadow-soft transition-transform hover:scale-105 active:scale-95 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
             >
               📷
@@ -119,7 +118,7 @@ export function ProfilePage() {
             <p className="text-sm text-slate-400">{user?.email}</p>
             {content && (
               <p className="mt-1 text-xs text-slate-400">
-                Membre depuis le {formatDate(content.user.createdAt)}
+                {t('profile.memberSince', { date: formatDate(content.user.createdAt) })}
               </p>
             )}
           </div>
@@ -166,13 +165,13 @@ export function ProfilePage() {
           </div>
         ) : !content ? (
           <p className="rounded-2xl bg-white px-4 py-8 text-center text-sm text-slate-400 shadow-soft dark:bg-slate-800">
-            Impossible de charger le profil.
+            {t('profile.loadError')}
           </p>
         ) : (
           <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             {tab === 'pois' &&
               (content.pois.length === 0 ? (
-                <EmptyState message="Vous n'avez pas encore créé de point." />
+                <EmptyState message={t('profile.emptyPois')} />
               ) : (
                 <ul className="space-y-2.5">
                   {content.pois.map((poi) => (
@@ -187,7 +186,7 @@ export function ProfilePage() {
                           </span>
                           {poi.category && (
                             <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
-                              {categoryLabels[poi.category] ?? poi.category}
+                              {t(`categories.${poi.category}`, { defaultValue: poi.category })}
                             </span>
                           )}
                         </div>
@@ -207,7 +206,7 @@ export function ProfilePage() {
 
             {tab === 'comments' &&
               (content.comments.length === 0 ? (
-                <EmptyState message="Vous n'avez pas encore laissé de commentaire." />
+                <EmptyState message={t('profile.emptyComments')} />
               ) : (
                 <ul className="space-y-2.5">
                   {content.comments.map((c) => (
@@ -218,7 +217,8 @@ export function ProfilePage() {
                       >
                         <p className="text-sm text-slate-700 dark:text-slate-200">{c.content}</p>
                         <p className="mt-2 text-xs text-slate-400">
-                          Sur <span className="font-semibold text-brand-600 dark:text-brand-300">{c.poi.name}</span> ·{' '}
+                          {t('profile.on')}{' '}
+                          <span className="font-semibold text-brand-600 dark:text-brand-300">{c.poi.name}</span> ·{' '}
                           {formatDate(c.createdAt)}
                         </p>
                       </button>
@@ -229,7 +229,7 @@ export function ProfilePage() {
 
             {tab === 'photos' &&
               (content.photos.length === 0 ? (
-                <EmptyState message="Vous n'avez pas encore publié de photo." />
+                <EmptyState message={t('profile.emptyPhotos')} />
               ) : (
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                   {content.photos.map((p) => (

@@ -14,15 +14,15 @@ router.post('/register', async (req, res, next) => {
     const { email, password, name } = req.body as { email?: string; password?: string; name?: string };
 
     if (!email || !password || !name) {
-      throw new ApiError(400, 'Email, mot de passe et nom requis');
+      throw new ApiError(400, 'Email, password and name are required', 'MISSING_FIELDS');
     }
     if (password.length < 6) {
-      throw new ApiError(400, 'Mot de passe trop court (6 caractères minimum)');
+      throw new ApiError(400, 'Password too short (minimum 6 characters)', 'PASSWORD_TOO_SHORT');
     }
 
     const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (existing) {
-      throw new ApiError(409, 'Un compte existe déjà avec cet email');
+      throw new ApiError(409, 'An account already exists with this email', 'EMAIL_TAKEN');
     }
 
     const user = await prisma.user.create({
@@ -44,17 +44,17 @@ router.post('/login', async (req, res, next) => {
     const { email, password } = req.body as { email?: string; password?: string };
 
     if (!email || !password) {
-      throw new ApiError(400, 'Email et mot de passe requis');
+      throw new ApiError(400, 'Email and password are required', 'LOGIN_FIELDS_REQUIRED');
     }
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (!user?.passwordHash) {
-      throw new ApiError(401, 'Email ou mot de passe incorrect');
+      throw new ApiError(401, 'Incorrect email or password', 'INVALID_CREDENTIALS');
     }
 
     const ok = await comparePassword(password, user.passwordHash);
     if (!ok) {
-      throw new ApiError(401, 'Email ou mot de passe incorrect');
+      throw new ApiError(401, 'Incorrect email or password', 'INVALID_CREDENTIALS');
     }
 
     res.json({ token: signToken(user.id), user: publicUser(user) });
@@ -68,13 +68,13 @@ router.post('/google', async (req, res, next) => {
     const { idToken } = req.body as { idToken?: string };
 
     if (!idToken) {
-      throw new ApiError(400, 'Token Google manquant');
+      throw new ApiError(400, 'Google token missing', 'GOOGLE_TOKEN_MISSING');
     }
 
     const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
     const response = await fetch(url);
     if (!response.ok) {
-      throw new ApiError(401, 'Token Google invalide');
+      throw new ApiError(401, 'Invalid Google token', 'GOOGLE_TOKEN_INVALID');
     }
 
     const payload = (await response.json()) as {
@@ -85,7 +85,7 @@ router.post('/google', async (req, res, next) => {
     };
 
     if (!payload.sub) {
-      throw new ApiError(401, 'Token Google invalide');
+      throw new ApiError(401, 'Invalid Google token', 'GOOGLE_TOKEN_INVALID');
     }
 
     const email = payload.email?.toLowerCase() || `${payload.sub}@google.local`;
@@ -95,7 +95,7 @@ router.post('/google', async (req, res, next) => {
       user = await prisma.user.create({
         data: {
           email,
-          name: payload.name || 'Utilisateur Google',
+          name: payload.name || 'Google User',
           googleId: payload.sub,
           avatarUrl: payload.picture || null,
         },

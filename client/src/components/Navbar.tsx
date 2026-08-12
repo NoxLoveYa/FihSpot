@@ -1,9 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
+import { LanguageToggle } from './LanguageToggle';
 
 export function Navbar() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -19,11 +22,12 @@ export function Navbar() {
 
       <div className="pointer-events-auto flex items-center gap-2">
         <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
+        <LanguageToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
         {user ? (
           <>
             <button
               onClick={() => navigate('/profile')}
-              title="Mon profil"
+              title={t('nav.profile')}
               className="hidden items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 shadow-soft backdrop-blur-md transition-colors hover:bg-white sm:flex dark:bg-slate-800/80 dark:hover:bg-slate-700"
             >
               {user.avatarUrl ? (
@@ -39,7 +43,7 @@ export function Navbar() {
             </button>
             <button
               onClick={() => navigate('/profile')}
-              aria-label="Mon profil"
+              aria-label={t('nav.profile')}
               className="grid h-10 w-10 place-items-center rounded-full bg-white/80 shadow-soft backdrop-blur-md transition-colors hover:bg-white sm:hidden dark:bg-slate-800/80 dark:hover:bg-slate-700"
             >
               {user.avatarUrl ? (
@@ -57,7 +61,7 @@ export function Navbar() {
               }}
               className="rounded-xl bg-white/80 px-3 py-2 text-sm font-semibold text-slate-600 shadow-soft backdrop-blur-md transition-colors hover:text-rose-600 dark:bg-slate-800/80 dark:text-slate-300"
             >
-              Déconnexion
+              {t('nav.logout')}
             </button>
           </>
         ) : (
@@ -65,7 +69,7 @@ export function Navbar() {
             onClick={() => navigate('/login')}
             className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-float transition-colors hover:bg-brand-700"
           >
-            Se connecter
+            {t('nav.login')}
           </button>
         )}
       </div>

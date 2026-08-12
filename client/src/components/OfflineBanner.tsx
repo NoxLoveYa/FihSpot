@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export function OfflineBanner() {
+  const { t } = useTranslation();
   const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function OfflineBanner() {
           className="pointer-events-none fixed inset-x-0 top-16 z-[1800] flex justify-center px-4"
         >
           <div className="pointer-events-auto rounded-full bg-slate-900/90 px-4 py-2 text-xs font-semibold text-white shadow-soft backdrop-blur">
-            Hors ligne — affichage des données en cache
+            {t('offline.banner')}
           </div>
         </motion.div>
       )}

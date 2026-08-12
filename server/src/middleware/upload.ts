@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 import { config } from '../config';
+import { ApiError } from './errorHandler';
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
 
@@ -22,7 +23,7 @@ export const upload = multer({
     const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (!allowed.includes(ext)) {
-      cb(new Error('Format d\'image non supporté'));
+      cb(new ApiError(400, 'Image format not supported', 'IMAGE_TYPE_UNSUPPORTED'));
       return;
     }
     cb(null, true);

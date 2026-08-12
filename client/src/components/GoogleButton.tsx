@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -18,6 +19,7 @@ declare global {
 }
 
 export function GoogleButton() {
+  const { t } = useTranslation();
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const { googleLogin } = useAuth();
@@ -43,7 +45,7 @@ export function GoogleButton() {
           try {
             await googleLogin(resp.credential);
           } catch {
-            toast('Connexion Google échouée', 'error');
+            toast(t('google.error'), 'error');
           } finally {
             setPending(false);
           }
@@ -63,7 +65,7 @@ export function GoogleButton() {
     return () => {
       document.body.removeChild(script);
     };
-  }, [googleClientId, googleLogin, toast]);
+  }, [googleClientId, googleLogin, toast, t]);
 
   if (!googleClientId) return null;
 

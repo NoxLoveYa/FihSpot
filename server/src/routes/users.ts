@@ -44,7 +44,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
 
 router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req, res, next) => {
   try {
-    if (!req.file) throw new ApiError(400, 'Fichier manquant');
+    if (!req.file) throw new ApiError(400, 'File missing', 'FILE_MISSING');
 
     const user = req.user!;
     if (user.avatarUrl?.startsWith('/uploads/')) {

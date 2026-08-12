@@ -22,8 +22,8 @@ const poiInclude = {
 function validateCoords(lat: unknown, lng: unknown) {
   const nLat = Number(lat);
   const nLng = Number(lng);
-  if (!Number.isFinite(nLat) || nLat < -90 || nLat > 90) throw new ApiError(400, 'Latitude invalide');
-  if (!Number.isFinite(nLng) || nLng < -180 || nLng > 180) throw new ApiError(400, 'Longitude invalide');
+  if (!Number.isFinite(nLat) || nLat < -90 || nLat > 90) throw new ApiError(400, 'Invalid latitude', 'INVALID_LAT');
+  if (!Number.isFinite(nLng) || nLng < -180 || nLng > 180) throw new ApiError(400, 'Invalid longitude', 'INVALID_LNG');
   return { lat: nLat, lng: nLng };
 }
 
@@ -59,7 +59,7 @@ router.get('/:id', async (req, res, next) => {
       include: poiInclude,
     });
 
-    if (!poi) throw new ApiError(404, 'Point d\'intérêt introuvable');
+    if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
     res.json({ poi });
   } catch (e) {
     next(e);
@@ -76,7 +76,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       lng?: unknown;
     };
 
-    if (!name?.trim()) throw new ApiError(400, 'Le nom est requis');
+    if (!name?.trim()) throw new ApiError(400, 'Name is required', 'NAME_REQUIRED');
     const coords = validateCoords(lat, lng);
 
     const poi = await prisma.poI.create({
@@ -99,8 +99,8 @@ router.post('/', requireAuth, async (req, res, next) => {
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
-    if (!poi) throw new ApiError(404, 'Point d\'intérêt introuvable');
-    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
+    if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
+    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     const { name, description, category } = req.body as {
       name?: string;
@@ -129,8 +129,8 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       where: { id: req.params.id },
       include: { photos: { select: { url: true } } },
     });
-    if (!poi) throw new ApiError(404, 'Point d\'intérêt introuvable');
-    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
+    if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
+    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     const photoUrls = poi.photos.map((p) => p.url);
     await prisma.poI.delete({ where: { id: poi.id } });
@@ -144,10 +144,10 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const { content } = req.body as { content?: string };
-    if (!content?.trim()) throw new ApiError(400, 'Le commentaire est vide');
+    if (!content?.trim()) throw new ApiError(400, 'Comment is empty', 'COMMENT_EMPTY');
 
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
-    if (!poi) throw new ApiError(404, 'Point d\'intérêt introuvable');
+    if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
 
     const comment = await prisma.comment.create({
       data: {
@@ -167,8 +167,8 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
 router.delete('/comments/:commentId', requireAuth, async (req, res, next) => {
   try {
     const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
-    if (!comment) throw new ApiError(404, 'Commentaire introuvable');
-    if (comment.userId !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
+    if (!comment) throw new ApiError(404, 'Comment not found', 'COMMENT_NOT_FOUND');
+    if (comment.userId !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     await prisma.comment.delete({ where: { id: comment.id } });
     res.status(204).end();
@@ -179,11 +179,11 @@ router.delete('/comments/:commentId', requireAuth, async (req, res, next) => {
 
 router.post('/:id/photos', requireAuth, upload.single('photo'), async (req, res, next) => {
   try {
-    if (!req.file) throw new ApiError(400, 'Fichier manquant');
+    if (!req.file) throw new ApiError(400, 'File missing', 'FILE_MISSING');
 
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) {
-      throw new ApiError(404, 'Point d\'intérêt introuvable');
+      throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
     }
 
     const photo = await prisma.photo.create({
@@ -204,8 +204,8 @@ router.post('/:id/photos', requireAuth, upload.single('photo'), async (req, res,
 router.delete('/photos/:photoId', requireAuth, async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({ where: { id: req.params.photoId } });
-    if (!photo) throw new ApiError(404, 'Photo introuvable');
-    if (photo.userId !== req.user!.id) throw new ApiError(403, 'Action non autorisée');
+    if (!photo) throw new ApiError(404, 'Photo not found', 'PHOTO_NOT_FOUND');
+    if (photo.userId !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     await prisma.photo.delete({ where: { id: photo.id } });
     unlinkUpload(photo.url);

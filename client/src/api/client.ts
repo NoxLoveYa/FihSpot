@@ -1,4 +1,5 @@
 import type { Bounds, Comment, Photo, PoI, PoISummary, User, UserContent } from './types';
+import i18n from '../i18n';
 
 const API_URL = '/api';
 
@@ -36,10 +37,12 @@ export function clearCachedUser() {
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -58,7 +61,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   try {
     res = await fetch(`${API_URL}${path}`, { ...options, headers });
   } catch {
-    throw new ApiError(0, 'Pas de connexion');
+    throw new ApiError(0, i18n.t('errors.noConnection'), 'NO_CONNECTION');
   }
 
   if (res.status === 401) {
@@ -67,14 +70,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    let message = `Erreur ${res.status}`;
+    let message = i18n.t('errors.http', { status: res.status });
+    let code: string | undefined;
     try {
-      const body = (await res.json()) as { error?: string };
+      const body = (await res.json()) as { error?: string; code?: string };
       if (body.error) message = body.error;
+      if (body.code) code = body.code;
     } catch {
       // ignore
     }
-    throw new ApiError(res.status, message);
+    if (code) {
+      message = i18n.t(`errors.${code}`, { defaultValue: message });
+    }
+    throw new ApiError(res.status, message, code);
   }
 
   if (res.status === 204) {
