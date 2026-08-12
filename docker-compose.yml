@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: fihspot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fihspot
+      POSTGRES_PASSWORD: fihspot
+      POSTGRES_DB: fihspot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fihspot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: fihspot-server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://fihspot:fihspot@db:5432/fihspot
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-docker}
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:8080
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - uploads:/app/server/uploads
+    ports:
+      - "3000:3000"
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: fihspot-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  uploads:

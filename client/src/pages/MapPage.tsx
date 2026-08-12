@@ -1,0 +1,127 @@
+import { useCallback, useEffect, useState } from 'react';
+import type { LatLng } from 'leaflet';
+import { motion } from 'framer-motion';
+import type { Bounds, PoISummary } from '../api/types';
+import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { MapView } from '../components/MapView';
+import { PoiDrawer } from '../components/PoiDrawer';
+import { AddPoiPanel } from '../components/AddPoiPanel';
+import { Navbar } from '../components/Navbar';
+import { FullScreenLoader } from '../components/Spinner';
+
+export function MapPage() {
+  const { user, loading } = useAuth();
+  const { toast } = useToast();
+  const [pois, setPois] = useState<PoISummary[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draftPosition, setDraftPosition] = useState<LatLng | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  const loadBounds = useCallback(
+    async (bounds: Bounds) => {
+      try {
+        const { pois } = await api.listPois(bounds);
+        setPois(pois);
+      } catch (e) {
+        toast('Impossible de charger les points', 'error');
+      } finally {
+        setInitialLoading(false);
+      }
+    },
+    [toast],
+  );
+
+  useEffect(() => {
+    loadBounds({ swLat: -90, swLng: -180, neLat: 90, neLng: 180 });
+  }, [loadBounds]);
+
+  const refresh = useCallback(() => {
+    setSelectedId(null);
+    setPois([]);
+    loadBounds({ swLat: -90, swLng: -180, neLat: 90, neLng: 180 });
+  }, [loadBounds]);
+
+  const reload = useCallback(() => {
+    loadBounds({ swLat: -90, swLng: -180, neLat: 90, neLng: 180 });
+  }, [loadBounds]);
+
+  const handlePick = useCallback(
+    (latlng: LatLng) => {
+      setDraftPosition(latlng);
+      setSelectedId(null);
+    },
+    [],
+  );
+
+  if (loading) return <FullScreenLoader />;
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      <Navbar />
+      <MapView
+        pois={pois}
+        selectedId={selectedId}
+        adding={adding}
+        draftPosition={adding ? draftPosition : null}
+        onBoundsChange={loadBounds}
+        onSelect={(id) => {
+          setSelectedId(id);
+          setDraftPosition(null);
+          setAdding(false);
+        }}
+        onPick={handlePick}
+      />
+
+      {initialLoading && (
+        <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
+          <div className="rounded-xl bg-white/90 px-4 py-2 text-sm font-medium text-slate-500 shadow-soft backdrop-blur">
+            Chargement des points…
+          </div>
+        </div>
+      )}
+
+      <PoiDrawer
+        poiId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onPoiChanged={reload}
+      />
+
+      <AddPoiPanel
+        key={draftPosition ? `${draftPosition.lat}-${draftPosition.lng}` : 'none'}
+        position={draftPosition as LatLng}
+        onCancel={() => {
+          setDraftPosition(null);
+          setAdding(false);
+        }}
+        onCreated={() => {
+          setDraftPosition(null);
+          setAdding(false);
+          refresh();
+        }}
+      />
+
+      {user && (
+        <button
+          onClick={() => {
+            setAdding((a) => !a);
+            setDraftPosition(null);
+            setSelectedId(null);
+          }}
+          aria-label={adding ? 'Annuler l\'ajout' : 'Ajouter un point'}
+          className="fixed bottom-6 right-4 z-[1500] grid h-14 w-14 place-items-center rounded-full bg-brand-600 text-2xl text-white shadow-float transition-all hover:bg-brand-700 active:scale-95"
+        >
+          <motion.span
+            animate={{ rotate: adding ? 45 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="block"
+          >
+            +
+          </motion.span>
+        </button>
+      )}
+    </div>
+  );
+}

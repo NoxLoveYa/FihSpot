@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String?
+  googleId     String?    @unique
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime   @default(now())
+  pois         PoI[]
+  comments     Comment[]
+  photos       Photo[]
+}
+
+model PoI {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  lat         Float
+  lng         Float
+  category    String?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  comments    Comment[]
+  photos      Photo[]
+
+  @@index([lat, lng])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  poiId     String
+  poi       PoI      @relation(fields: [poiId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([poiId])
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  url       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  poiId     String
+  poi       PoI      @relation(fields: [poiId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([poiId])
+}

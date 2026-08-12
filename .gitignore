@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+client/dist/
+
+# Env
+.env
+
+# Prisma
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# Uploads (photos)
+server/uploads/*
+
+# Misc
+.DS_Store
+*.log
+.vscode/
+.idea/
