@@ -34,15 +34,22 @@ function categoryIcon(category: string | null): string {
   }
 }
 
-function makeIcon(category: string | null, selected: boolean): L.DivIcon {
+function makeIcon(category: string | null): L.DivIcon {
   return L.divIcon({
     className: 'custom-marker',
-    html: `<div class="marker-pin ${selected ? 'selected' : ''}" style="background:${categoryColor(category)}"><span>${categoryIcon(category)}</span></div>`,
+    html: `<div class="marker-pin" style="background:${categoryColor(category)}"><span>${categoryIcon(category)}</span></div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 34],
     popupAnchor: [0, -32],
   });
 }
+
+const selectedRingIcon = L.divIcon({
+  className: 'custom-marker-ring',
+  html: '<div class="marker-selected-ring"></div>',
+  iconSize: [48, 48],
+  iconAnchor: [24, 24],
+});
 
 interface BoundsChangeProps {
   onBoundsChange: (bounds: Bounds) => void;
@@ -138,14 +145,20 @@ export function MapView({
   onPick,
 }: MapViewProps) {
   const center: [number, number] = [48.8566, 2.3522];
-  const draftIcon = useMemo(() => makeIcon(null, false), []);
-  const icons = useMemo(
-    () =>
-      Object.fromEntries(
-        pois.map((poi) => [poi.id, makeIcon(poi.category, poi.id === selectedId)]),
-      ),
-    [pois, selectedId],
-  );
+  const draftIcon = useMemo(() => makeIcon(null), []);
+
+  const iconCache = useRef(new Map<string, L.DivIcon>());
+  const getIcon = useCallback((category: string | null): L.DivIcon => {
+    const key = category ?? 'default';
+    let icon = iconCache.current.get(key);
+    if (!icon) {
+      icon = makeIcon(category);
+      iconCache.current.set(key, icon);
+    }
+    return icon;
+  }, []);
+
+  const selectedPoi = selectedId ? pois.find((p) => p.id === selectedId) : null;
 
   return (
     <div className="relative h-full w-full">
@@ -161,12 +174,16 @@ export function MapView({
           <Marker
             key={poi.id}
             position={[poi.lat, poi.lng]}
-            icon={icons[poi.id]}
+            icon={getIcon(poi.category)}
             eventHandlers={{
               click: () => onSelect(poi.id),
             }}
           />
         ))}
+
+        {selectedPoi && (
+          <Marker position={[selectedPoi.lat, selectedPoi.lng]} icon={selectedRingIcon} interactive={false} />
+        )}
 
         {draftPosition && <Marker position={draftPosition} icon={draftIcon} />}
 
