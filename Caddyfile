@@ -1,0 +1,7 @@
+fihspot.com {
+	reverse_proxy client:80
+}
+
+www.fihspot.com {
+	redir https://fihspot.com{uri} permanent
+}

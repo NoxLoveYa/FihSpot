@@ -15,6 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/server/prisma ./server/prisma
 COPY --from=build /app/server/package.json ./server/package.json
 WORKDIR /app/server

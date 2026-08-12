@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: fihspot
       POSTGRES_PASSWORD: fihspot
       POSTGRES_DB: fihspot
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -31,13 +29,11 @@ services:
       DATABASE_URL: postgresql://fihspot:fihspot@db:5432/fihspot
       JWT_SECRET: ${JWT_SECRET:-dev-secret-docker}
       JWT_EXPIRES_IN: 7d
-      CLIENT_URL: http://localhost:8080
+      CLIENT_URL: ${CLIENT_URL:-https://fihspot.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - ./server/uploads:/app/server/uploads
-    ports:
-      - "3000:3000"
 
   client:
     build:
@@ -47,8 +43,22 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: fihspot-caddy
+    restart: unless-stopped
+    depends_on:
+      - client
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
