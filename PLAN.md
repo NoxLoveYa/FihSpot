@@ -3,140 +3,183 @@
 ## Objectif
 Site web responsive mobile où les utilisateurs authentifiés ajoutent et consultent des **points d'intérêt** sur une carte. Un POI "focusé" affiche une fiche avec **commentaires**, **photos** et un bouton **"Ouvrir dans Google Maps"**.
 
-## Stack
-- **Frontend** : React 18 + TypeScript + Vite, React Router, Leaflet (`react-leaflet`), Tailwind CSS, Framer Motion
-- **Backend** : Express + TypeScript, Prisma ORM, JWT
-- **Auth** : email/mot-de-passe (bcrypt) + Google OAuth (flux serveur)
-- **Photos** : upload local via `multer`, servi statiquement par Express
-- **Base de données** : PostgreSQL 16 (via Docker Compose)
-- **Monorepo simple** : `client/` + `server/` + root `package.json`
+> Statut : **implémenté et testé de bout en bout** (voir [Statut & état](#statut--état)).
 
-## Structure du monorepo
+## Stack
+- **Frontend** : React 18 + TypeScript + Vite 6, React Router v7, `react-leaflet` + Leaflet 1.9, Tailwind CSS 3, Framer Motion
+- **Backend** : Express 4 + TypeScript (tsx en dev, tsc → dist), Prisma ORM, JWT (jsonwebtoken)
+- **Auth** : email/mot-de-passe (bcryptjs) + Google OAuth (flux serveur, validation du token via `tokeninfo`)
+- **Photos** : upload local via `multer` 2.x, servi statiquement par Express (`/uploads`)
+- **Base de données** : PostgreSQL 16 (Docker Compose)
+- **Monorepo** : npm workspaces (`client/` + `server/`), scripts racine
+
+## Architecture
+
+### Structure réelle du monorepo
 ```
 FihSpot/
-├── PLAN.md
-├── package.json                 # scripts racine (dev, build, db:*)
-├── .env.example                 # PORT, JWT_SECRET, DATABASE_URL, GOOGLE_*
-├── docker-compose.yml           # PostgreSQL + optionnel services app
+├── PLAN.md                       # ce document
+├── package.json                  # scripts racine (dev, build, db:migrate, db:seed)
+├── package-lock.json
+├── .env.example                  # modèle de config (PORT, JWT, DATABASE_URL, GOOGLE_*)
+├── .gitignore
+├── docker-compose.yml            # stack complète : db + server + client (nginx)
 ├── client/
-│   ├── vite.config.ts           # proxy /api -> server
+│   ├── Dockerfile                # multi-stage : build Vite → nginx
+│   ├── nginx.conf                # SPA fallback + proxy /api et /uploads → server:3000
+│   ├── index.html                # fonts Inter, CSS Leaflet
+│   ├── vite.config.ts            # proxy dev /api + /uploads → localhost:3000
+│   ├── tailwind.config.js        # tokens (palette brand, radii, ombres, dark mode class)
+│   ├── postcss.config.js
+│   ├── tsconfig.json
+│   ├── public/favicon.svg
 │   └── src/
-│       ├── main.tsx / App.tsx / router.tsx
-│       ├── components/          # Navbar, Map, MarkerPopup, PoIDetail, CommentList, PhotoGrid
-│       ├── pages/               # MapPage, LoginPage, RegisterPage, AddPoIPage, ProfilePage
-│       ├── api/                 # client axios + types
-│       ├── context/             # AuthContext
-│       └── styles/              # tokens Tailwind (couleurs, typo, radii)
+│       ├── main.tsx              # bootstrap React
+│       ├── App.tsx               # AuthProvider + ToastProvider + router + transitions de page
+│       ├── index.css             # Tailwind + styles Leaflet (marqueurs, dark map, reduced-motion)
+│       ├── api/
+│       │   ├── client.ts         # wrapper fetch + gestion token JWT (localStorage) + ApiError
+│       │   └── types.ts          # User, PoI, PoISummary, Comment, Photo, Bounds
+│       ├── context/
+│       │   ├── AuthContext.tsx   # login/register/googleLogin/logout + restauration session
+│       │   └── ToastContext.tsx  # toasts animés (AnimatePresence)
+│       ├── hooks/useMediaQuery.ts
+│       ├── components/
+│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte
+│       │   ├── MapView.tsx       # carte Leaflet, marqueurs par catégorie, bounds, géoloc, mode ajout
+│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop)
+│       │   ├── AddPoiPanel.tsx   # formulaire création après placement sur la carte
+│       │   ├── GoogleButton.tsx  # Google Identity Services (bouton "Continuer avec Google")
+│       │   ├── ProtectedRoute.tsx
+│       │   ├── Button.tsx / Input.tsx / Logo.tsx / Spinner.tsx
+│       └── pages/
+│           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états
+│           ├── LoginPage.tsx
+│           └── RegisterPage.tsx
 └── server/
-    ├── src/
-    │   ├── index.ts / app.ts    # bootstrap + middlewares/routes
-    │   ├── prisma.ts            # client singleton
-    │   ├── middleware/          # authJWT, upload, errorHandler
-    │   ├── routes/              # auth, pois, comments, photos, users
-    │   ├── controllers/         # logique métier
-    │   └── utils/               # jwt, oauth, password
-    ├── prisma/schema.prisma + seed.ts
-    ├── Dockerfile               # build multi-stage Node
-    └── uploads/                 # photos (volume Docker, gitignored)
+    ├── Dockerfile                # multi-stage : npm ci → build tsc → node dist
+    ├── package.json
+    ├── tsconfig.json
+    ├── .env                      # config locale de dev (gitignoré)
+    ├── prisma/
+    │   ├── schema.prisma
+    │   ├── migrations/           # 20260812054708_init
+    │   └── seed.ts               # user démo + 5 POI à Marseille
+    ├── uploads/                  # photos (volume Docker, gitignoré)
+    └── src/
+        ├── index.ts              # bootstrap listen
+        ├── app.ts                # createApp() : CORS, JSON, routes, statique, error handler
+        ├── config.ts             # lecture .env
+        ├── prisma.ts             # singleton PrismaClient
+        ├── types.ts              # augmentation Express.Request.user
+        ├── middleware/
+        │   ├── auth.ts           # requireAuth (Bearer JWT → req.user)
+        │   ├── upload.ts         # multer (jpeg/png/webp/gif, 5 Mo, nom aléatoire)
+        │   └── errorHandler.ts   # ApiError + MulterError + fallback 500
+        ├── routes/
+        │   ├── auth.ts           # register/login/google/me/config
+        │   └── pois.ts           # CRUD POI + commentaires + photos
+        └── utils/
+            ├── jwt.ts            # signToken / verifyToken
+            └── password.ts       # bcrypt hash / compare
 ```
 
-## Modèle de données (Prisma)
-- **User** : id, email (unique), passwordHash?, googleId?, name, avatarUrl?, createdAt
-- **PoI** : id, name, description?, lat, lng, category?, createdById → User, createdAt, updatedAt
-- **Comment** : id, content, userId → User, poiId → PoI, createdAt
-- **Photo** : id, url, poiId → PoI, userId → User, createdAt
+### Modèle de données (Prisma — implémenté)
+- **User** : `id` (cuid), `email` (unique), `passwordHash?`, `googleId?` (unique), `name`, `avatarUrl?`, `createdAt`
+- **PoI** : `id`, `name`, `description?`, `lat`, `lng`, `category?`, `createdById → User`, `createdAt`, `updatedAt` ; index `[lat, lng]`
+- **Comment** : `id`, `content`, `userId → User`, `poiId → PoI` (onDelete: Cascade), `createdAt`
+- **Photo** : `id`, `url`, `userId → User`, `poiId → PoI` (onDelete: Cascade), `createdAt`
 
 Relations : User `1-n` PoI/Comment/Photo ; PoI `1-n` Comment/Photo.
 
-## Docker Compose
+## Docker Compose (implémenté)
 
 ```yaml
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: fihspot-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: fihspot
-      POSTGRES_PASSWORD: fihspot
-      POSTGRES_DB: fihspot
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fihspot"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
+  db:      # postgres:16-alpine, port 5432, volume pgdata, healthcheck pg_isready
+  server:  # Dockerfile server, env (DATABASE_URL→db:5432, JWT_SECRET, GOOGLE_*), volume uploads, port 3000
+  client:  # Dockerfile client (nginx), port 8080:80, proxy /api + /uploads → server
 volumes:
   pgdata:
+  uploads:
 ```
 
-### Usages prévus
 | Command | Description |
 |---|---|
-| `docker compose up -d db` | Démarre PostgreSQL (défaut pour le dev local) |
-| `docker compose up --build` | Démarre la stack complète (db + server + client en production-like) |
+| `docker compose up -d db` | PostgreSQL seul (recommandé pour le dev) |
+| `npm run dev` | Dev local : server (tsx watch :3000) + client (Vite :5173, proxy) |
+| `npm run db:migrate` / `db:seed` | Migration Prisma + seed de démo |
+| `docker compose up --build` | Stack complète production-like : `http://localhost:8080` |
 
-- **Dev** : on lance seulement `db` ; `npm run dev` fait tourner client (Vite :5173) et server (Express :3000) en local avec hot reload. `DATABASE_URL=postgresql://fihspot:fihspot@localhost:5432/fihspot`.
-- **Prod/stack complète** : `Dockerfile` multi-stage du server (build TS → `node dist/index.js`), `Dockerfile` multi-stage du client (build Vite → `nginx` servant `dist/`, reverse proxy `/api` → server). Volumes : `pgdata` (BDD) + `uploads` (photos).
-- **Migrate/seed** : `npm run db:migrate` et `npm run db:seed`.
-- **`.env` côté Docker** : `DATABASE_URL` pointe sur `db:5432` quand le server tourne en container ; `JWT_SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `CLIENT_URL` injectés via `environment`/`env_file`.
+- Au démarrage en Docker, le server exécute `prisma migrate deploy` avant `node dist/index.js`.
+- Le client est servi par nginx : `try_files` SPA + reverse proxy `/api/` et `/uploads/` vers `server:3000`.
+- Config serveur injectée via variables d'environnement : `DATABASE_URL=postgresql://fihspot:fihspot@db:5432/fihspot`, `JWT_SECRET` (défaut Docker sinon), `GOOGLE_CLIENT_ID/SECRET`, `CLIENT_URL`.
 
-## API
-### Auth
-- `POST /api/auth/register` — email + mot de passe (bcrypt)
-- `POST /api/auth/login` — JWT (localStorage)
-- `POST /api/auth/google` — échange token Google → JWT
-- `GET /api/auth/me` — profil (protégé)
+## API (implémentée)
+### Auth — `server/src/routes/auth.ts`
+| Méthode | Route | Description | Auth |
+|---|---|---|---|
+| POST | `/api/auth/register` | email + mot de passe + nom → `{ token, user }` | – |
+| POST | `/api/auth/login` | email + mot de passe → `{ token, user }` | – |
+| POST | `/api/auth/google` | `{ idToken }` Google → vérif `tokeninfo` → `{ token, user }` | – |
+| GET | `/api/auth/me` | profil courant | ✅ |
+| GET | `/api/auth/config` | `{ googleClientId }` pour le bouton Google | – |
 
-### Points d'intérêt
-- `GET /api/pois` — liste (bounds lat/lng/radius optionnelles)
-- `GET /api/pois/:id` — détail + commentaires + photos
-- `POST /api/pois` — créer (protégé)
-- `PATCH /api/pois/:id` — éditer (auteur)
-- `DELETE /api/pois/:id` — auteur
+### Points d'intérêt — `server/src/routes/pois.ts`
+| Méthode | Route | Description | Auth |
+|---|---|---|---|
+| GET | `/api/pois` | liste + `_count` comments/photos ; filtres bounds `?swLat&swLng&neLat&neLng` | – |
+| GET | `/api/pois/:id` | détail complet (createdBy, comments, photos) | – |
+| POST | `/api/pois` | créer (name, description?, category?, lat, lng validés) | ✅ |
+| PATCH | `/api/pois/:id` | éditer name/description/category | ✅ auteur |
+| DELETE | `/api/pois/:id` | supprimer | ✅ auteur |
+| POST | `/api/pois/:id/comments` | ajouter un commentaire | ✅ |
+| DELETE | `/api/pois/comments/:commentId` | supprimer | ✅ auteur |
+| POST | `/api/pois/:id/photos` | upload multipart `photo` (image, ≤5 Mo) | ✅ |
+| DELETE | `/api/pois/photos/:photoId` | supprimer | ✅ auteur |
+| GET | `/uploads/:file` | photos servies statiquement | – |
 
-### Commentaires / Photos
-- `POST /api/pois/:id/comments` (protégé) / `DELETE /api/comments/:id`
-- `POST /api/pois/:id/photos` — multipart multer, filtre image, limite taille
-- `DELETE /api/photos/:id` — auteur
-- `GET /uploads/:file` — statique
-
-## UX frontend — design & animations
+## UX frontend — design & animations (implémenté)
 
 ### Direction artistique
-- **Mobile-first**, ambiance "exploration" : fond clair neutre (gris très clair / blanc cassé), accent coloré vif (ex. indigo ou émeraude), carte qui reste le point focal plein écran.
-- **Tokens Tailwind** centralisés dans `theme` : palette, typographie (police UI système ou variable comme Inter/Geist), rayons (cards `rounded-2xl`), ombres douces, espaces.
-- **Dark mode** optionnel via `class` strategy + toggle persisté (low effort, belle plus-value).
-- Micro-détails : surfaces glassmorphism légères sur les overlays de carte, hover states subtils (scale + shadow), focus rings accessibles.
+- **Mobile-first**, carte plein écran comme point focal ; fond clair neutre (`#f8fafc`), accent **indigo** (`brand-600`), police **Inter**.
+- **Tokens Tailwind** dans `tailwind.config.js` : palette `brand`, rayons (`rounded-2xl`/`3xl`), ombres `soft`/`float`, animations `fade-in`/`slide-up`.
+- **Dark mode** préparé (stratégie `class`) : styles dark sur body, nav, drawer, inputs, cartes (filter invert sur Leaflet).
+- Overlays glassmorphism (Navbar, bannière "chargement"), focus rings accessibles, micro-hovers.
 
 ### Animations (Framer Motion)
-- **Transitions de page** : fade + slide léger entre routes (AnimatePresence) — navigation fluide, jamais abrupte.
-- **Drawer/side-panel POI** : spring `y`/`x` — glisse et remonte depuis le bas sur mobile, depuis le côté sur desktop ; backdrop avec fade.
-- **Marqueurs Leaflet** : apparition en pop (scale) des nouveaux POI ; marqueur sélectionné animé (bounce/pulse) + popup avec transition d'entrée.
-- **Listes (commentaires, photos)** : entrée en stagger — les items apparaissent en cascade discrète.
-- **Boutons & FAB** : micro-interactions (scale au tap/hover), feedback de clic tactile (mobile).
-- **Formulaires** : shake/erreur animée sur champs invalides, spinner de chargement (login/upload).
-- **Toasts** : slide-in depuis le haut ou le bas, auto-dismiss animé.
-- **Respect `prefers-reduced-motion`** : on désactive les animations fortes pour accessibilité.
+- **Transitions de page** : `AnimatePresence mode="wait"` + fade/slide entre routes.
+- **Drawer/side-panel POI & AddPoiPanel** : spring — remonte depuis le bas en mobile (`y`), glisse depuis la droite en desktop (`x`, via `useMediaQuery`) ; backdrop fade.
+- **FAB** : rotation `+` → `✕` (rotation 45°) et `active:scale-95`.
+- **Formulaires** : shake horizontal des inputs en erreur, spinners (login/register, commentaire, upload).
+- **Toasts** : slide-in/dismiss animés (success/error/info).
+- **Marqueurs Leaflet** : `.marker-pin` (pins catégorisés), scale au survol, classe `.selected` (pulse/zoom).
+- **Skeletons** : fiche POI en chargement (shimmer).
 
 ### Responsive & ergonomie tactile
-- **Mobile** : FAB "ajouter" au pouce (en bas à droite), navbar bottom, drawer POI plein largeur qui remonte, zones tactiles ≥ 44px.
-- **Desktop** : FAB flottant + barre de recherche/catégories, side-panel resserré avec carte à côté.
-- États **vide / chargement / erreur** partout (skeleton shimmer sur la fiche POI), photos en lazy-load.
-- Carte : boutons zoom natifs Leaflet repositionnés, bouton "récentrer sur ma position" (geolocation).
+- **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
+- **Desktop** : side-panel 420 px à droite, carte visible à côté.
+- États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
+- Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout.
 
-## Étapes d'implémentation
-1. **Scaffold** : monorepo, Vite React TS, Express TS, root scripts, `.env.example`, `docker-compose.yml` + `Dockerfile`s, Tailwind + Framer Motion + tokens.
-2. **Base de données** : `docker compose up -d db`, migration Prisma (User/PoI/Comment/Photo) + seed.
-3. **Auth** : register/login JWT + AuthContext + protection de routes.
-4. **Google OAuth** : flux serveur + bouton client.
-5. **Map** : Leaflet, marqueurs animés, chargement POI, géolocalisation.
-6. **Fiche POI focus** : drawer animé, commentaires, upload photos, bouton Google Maps.
-7. **Ajout d'un POI** : flow placement + formulaire animé.
-8. **Responsive polish + animations** : transitions de page, toasts, skeleton, dark mode, reduced-motion.
-9. **Dockerisation complète** : images server + client, `docker compose up --build`, volumes.
-10. **Build & vérifs** : `npm run build` des deux côtés, tests d'API (supertest optionnel).
+## Statut & état
+| Élément | État |
+|---|---|
+| Scaffold monorepo (workspaces, scripts, env, docker-compose, Dockerfiles) | ✅ implémenté |
+| Schéma Prisma + migration `init` + seed (user démo + 5 POI) | ✅ implémenté |
+| Auth email/mot de passe (JWT + bcrypt) + AuthContext + ProtectedRoute | ✅ implémenté |
+| Google OAuth (endpoint serveur + GoogleButton client) | ✅ implémenté |
+| Carte Leaflet (marqueurs, bounds, géoloc, mode ajout) | ✅ implémenté |
+| Fiche POI (drawer animé, commentaires, photos, bouton Google Maps, suppression) | ✅ implémenté |
+| Ajout de POI (placement clic + formulaire) | ✅ implémenté |
+| Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
+| Stack Docker complète (`docker compose up --build` → :8080) | ✅ testé |
+| Build client + serveur | ✅ OK |
+| Compte de test | `demo@fihspot.app` / `demo1234` |
+
+## À configurer / à faire (optionnel)
+- **Google OAuth** : créer un projet Google Cloud, un OAuth Client ID, puis remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (dans `server/.env` en dev, ou variables d'environnement Compose). Tant que vides, le bouton Google est masqué.
+- **`JWT_SECRET`** : générer un secret fort et le définir (dev + Compose).
+- **Tests d'API** : supertest (non ajouté à ce jour).
+- **Dark mode toggle** : le CSS dark existe, mais le bouton de bascule persisté reste à brancher.
+- **Recherche / filtres par catégorie** sur la carte : prévus en roadmap, non implémentés.
