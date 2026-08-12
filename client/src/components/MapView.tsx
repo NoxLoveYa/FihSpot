@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import type { LatLng } from 'leaflet';
+import type { LatLng, Map as LeafletMap } from 'leaflet';
 import type { Bounds, PoISummary } from '../api/types';
 
 const categoryColors: Record<string, string> = {
@@ -51,6 +51,20 @@ const selectedRingIcon = L.divIcon({
   iconAnchor: [24, 24],
 });
 
+const userLocationIcon = L.divIcon({
+  className: 'custom-marker-user',
+  html: '<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+const searchMarkerIcon = L.divIcon({
+  className: 'custom-marker-search',
+  html: '<div class="marker-search-dot"><div class="marker-search-pulse"></div></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
 interface BoundsChangeProps {
   onBoundsChange: (bounds: Bounds) => void;
 }
@@ -93,36 +107,18 @@ function PickListener({ enabled, onPick }: ClickListenerProps) {
   return null;
 }
 
-interface RecenterProps {
-  onLocate?: (pos: LatLng) => void;
+interface MapReadyProps {
+  onMapReady: (map: LeafletMap) => void;
 }
 
-function RecenterButton({ onLocate }: RecenterProps) {
+function MapReadyListener({ onMapReady }: MapReadyProps) {
   const map = useMap();
-  const locating = useRef(false);
 
-  const handle = useCallback(() => {
-    if (locating.current) return;
-    locating.current = true;
-    map.locate({ setView: true, maxZoom: 16 });
-    map.once('locationfound', (e) => {
-      locating.current = false;
-      onLocate?.(e.latlng);
-    });
-    map.once('locationerror', () => {
-      locating.current = false;
-    });
-  }, [map, onLocate]);
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
 
-  return (
-    <button
-      onClick={handle}
-      aria-label="Me localiser"
-      className="absolute bottom-8 right-3 z-[1000] grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-lg shadow-soft transition-transform active:scale-95 dark:border-slate-700 dark:bg-slate-800"
-    >
-      🎯
-    </button>
-  );
+  return null;
 }
 
 interface MapViewProps {
@@ -130,6 +126,9 @@ interface MapViewProps {
   selectedId: string | null;
   adding: boolean;
   draftPosition: LatLng | null;
+  userPosition: LatLng | null;
+  searchPosition: LatLng | null;
+  onMapReady: (map: LeafletMap) => void;
   onBoundsChange: (bounds: Bounds) => void;
   onSelect: (id: string) => void;
   onPick: (latlng: LatLng) => void;
@@ -140,6 +139,9 @@ export function MapView({
   selectedId,
   adding,
   draftPosition,
+  userPosition,
+  searchPosition,
+  onMapReady,
   onBoundsChange,
   onSelect,
   onPick,
@@ -169,6 +171,7 @@ export function MapView({
         />
         <BoundsListener onBoundsChange={onBoundsChange} />
         <PickListener enabled={adding} onPick={onPick} />
+        <MapReadyListener onMapReady={onMapReady} />
 
         {pois.map((poi) => (
           <Marker
@@ -185,9 +188,11 @@ export function MapView({
           <Marker position={[selectedPoi.lat, selectedPoi.lng]} icon={selectedRingIcon} interactive={false} />
         )}
 
-        {draftPosition && <Marker position={draftPosition} icon={draftIcon} />}
+        {userPosition && <Marker position={userPosition} icon={userLocationIcon} interactive={false} zIndexOffset={1000} />}
 
-        <RecenterButton />
+        {searchPosition && <Marker position={searchPosition} icon={searchMarkerIcon} interactive={false} zIndexOffset={500} />}
+
+        {draftPosition && <Marker position={draftPosition} icon={draftIcon} />}
       </MapContainer>
 
       {adding && (

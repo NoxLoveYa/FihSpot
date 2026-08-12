@@ -52,6 +52,8 @@ FihSpot/
 │       ├── components/
 │       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte
 │       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème)
+│       │   ├── SearchBar.tsx     # recherche ville/lieu (Nominatim, debounce, dropdown)
+│       │   ├── UserLocationButton.tsx # localisation + centrage (au-dessus du FAB "+")
 │       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
 │       │   ├── MapView.tsx       # carte Leaflet, marqueurs par catégorie, bounds, géoloc, mode ajout
 │       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh
@@ -165,6 +167,8 @@ volumes:
 ### Responsive & ergonomie tactile
 - **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
 - **FAB masqué quand une fiche POI est ouverte** (`!selectedId`) pour ne pas obstruer la vue ; réapparaît à la fermeture du drawer.
+- **Localisation** : bouton 🎯 flottant **au-dessus du FAB "+"** (`bottom-24`), `map.locate({ setView })` → centrage sur l'utilisateur + **point bleu pulsant** (`userPosition`) ; toast d'erreur si localisation refusée/indisponible.
+- **Recherche ville/lieu** : barre `SearchBar` sous la Navbar (glass, debounce 350 ms) → **Nominatim** (`format=jsonv2`, monde entier, CORS OK) → dropdown (5 résultats) → `flyTo` au lieu choisi + **marqueur de recherche** (point turquoise pulsant, `searchPosition`, non cliquable). Fermeture au clic extérieur/Escape. Recherche et bouton 🎯 masqués quand une fiche POI est ouverte ; le marqueur se retire quand on sélectionne un POI ou place un nouveau point.
 - **Desktop** : side-panel 420 px à droite, carte visible à côté.
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
 - Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout.
@@ -212,6 +216,8 @@ volumes:
 | Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
 | **Dark mode** : toggle ☀️/🌙 visible (Navbar + pages auth) + persistance (`fihspot_theme`) | ✅ implémenté |
 | **FAB masqué quand une fiche POI est ouverte** | ✅ implémenté |
+| **Localisation utilisateur** : bouton 🎯 au-dessus du FAB + point bleu pulsant + centrage | ✅ implémenté |
+| **Recherche ville/lieu** (Nominatim, debounce, dropdown, flyTo) | ✅ implémenté |
 | **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
 | **Cache hors-ligne + fraîcheur en ligne** (spots/fiches/photos/tuiles, NetworkFirst + CacheFirst) | ✅ implémenté |
 | **Session JWT hors-ligne** (profil en cache, pas de logout sur erreur réseau) | ✅ implémenté |

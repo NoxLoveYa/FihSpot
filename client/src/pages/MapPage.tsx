@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { LatLng } from 'leaflet';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LatLng, Map } from 'leaflet';
+import { latLng } from 'leaflet';
 import { motion } from 'framer-motion';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
@@ -8,16 +9,21 @@ import { useToast } from '../context/ToastContext';
 import { MapView } from '../components/MapView';
 import { PoiDrawer } from '../components/PoiDrawer';
 import { AddPoiPanel } from '../components/AddPoiPanel';
+import { SearchBar } from '../components/SearchBar';
+import { UserLocationButton } from '../components/UserLocationButton';
 import { Navbar } from '../components/Navbar';
 import { FullScreenLoader } from '../components/Spinner';
 
 export function MapPage() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const mapRef = useRef<Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draftPosition, setDraftPosition] = useState<LatLng | null>(null);
+  const [userPosition, setUserPosition] = useState<LatLng | null>(null);
+  const [searchPosition, setSearchPosition] = useState<LatLng | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
   const loadBounds = useCallback(
@@ -52,9 +58,22 @@ export function MapPage() {
     (latlng: LatLng) => {
       setDraftPosition(latlng);
       setSelectedId(null);
+      setSearchPosition(null);
     },
     [],
   );
+
+  const handleSearchSelect = useCallback((lat: number, lng: number) => {
+    setSelectedId(null);
+    setAdding(false);
+    setDraftPosition(null);
+    setSearchPosition(latLng(lat, lng));
+    mapRef.current?.flyTo([lat, lng], 12, { duration: 0.8 });
+  }, []);
+
+  const handleLocate = useCallback((position: LatLng) => {
+    setUserPosition(position);
+  }, []);
 
   if (loading) return <FullScreenLoader />;
 
@@ -66,14 +85,22 @@ export function MapPage() {
         selectedId={selectedId}
         adding={adding}
         draftPosition={adding ? draftPosition : null}
+        userPosition={userPosition}
+        searchPosition={searchPosition}
+        onMapReady={(map) => {
+          mapRef.current = map;
+        }}
         onBoundsChange={loadBounds}
         onSelect={(id) => {
           setSelectedId(id);
           setDraftPosition(null);
           setAdding(false);
+          setSearchPosition(null);
         }}
         onPick={handlePick}
       />
+
+      {!selectedId && <SearchBar onSelect={handleSearchSelect} />}
 
       {initialLoading && (
         <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
@@ -102,6 +129,8 @@ export function MapPage() {
           refresh();
         }}
       />
+
+      {!selectedId && <UserLocationButton map={mapRef.current} onLocate={handleLocate} />}
 
       {user && !selectedId && (
         <button
