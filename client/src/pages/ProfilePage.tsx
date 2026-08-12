@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faCamera, faComment } from '@fortawesome/free-solid-svg-icons';
 import type { UserContent } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -72,9 +74,7 @@ export function ProfilePage() {
           onClick={() => navigate('/')}
           className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2">
-            <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
           {t('profile.back')}
         </button>
         <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">{t('profile.title')}</h1>
@@ -108,7 +108,7 @@ export function ProfilePage() {
               title={t('profile.changePhoto')}
               className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 shadow-soft transition-transform hover:scale-105 active:scale-95 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
             >
-              📷
+              <FontAwesomeIcon icon={faCamera} />
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={uploadAvatar} />
           </div>
@@ -195,8 +195,9 @@ export function ProfilePage() {
                             {poi.description}
                           </p>
                         )}
-                        <p className="mt-2 text-xs text-slate-400">
-                          💬 {poi._count.comments} · 📷 {poi._count.photos} · {formatDate(poi.createdAt)}
+                        <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+                          <FontAwesomeIcon icon={faComment} className="h-3 w-3" /> {poi._count.comments} ·{' '}
+                          <FontAwesomeIcon icon={faCamera} className="h-3 w-3" /> {poi._count.photos} · {formatDate(poi.createdAt)}
                         </p>
                       </button>
                     </li>

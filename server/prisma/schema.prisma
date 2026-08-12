@@ -27,6 +27,7 @@ model PoI {
   lat         Float
   lng         Float
   category    String?
+  demo        Boolean   @default(false)
   createdById String
   createdBy   User      @relation(fields: [createdById], references: [id])
   createdAt   DateTime  @default(now())

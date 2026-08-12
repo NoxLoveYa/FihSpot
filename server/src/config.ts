@@ -12,4 +12,5 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   uploadsDir: path.resolve(__dirname, '../uploads'),
+  demoEnabled: process.env.NODE_ENV !== 'production',
 };

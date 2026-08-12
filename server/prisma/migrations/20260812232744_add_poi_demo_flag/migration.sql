@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PoI" ADD COLUMN     "demo" BOOLEAN NOT NULL DEFAULT false;

@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { latLng } from 'leaflet';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -156,7 +158,7 @@ export function MapPage() {
         }}
       />
 
-      {!selectedId && <UserLocationButton map={mapRef.current} onLocate={handleLocate} />}
+      {!selectedId && <UserLocationButton map={mapRef.current} onLocate={handleLocate} autoTrigger={!pendingFocus} />}
 
       {user && !selectedId && (
         <button
@@ -173,7 +175,7 @@ export function MapPage() {
             transition={{ duration: 0.2 }}
             className="block"
           >
-            +
+            <FontAwesomeIcon icon={faPlus} className="h-6 w-6" />
           </motion.span>
         </button>
       )}

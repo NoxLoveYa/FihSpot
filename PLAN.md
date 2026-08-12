@@ -1,12 +1,12 @@
 # PLAN — FihSpot
 
 ## Objectif
-Site web responsive mobile où les utilisateurs authentifiés ajoutent et consultent des **points d'intérêt** sur une carte. Un POI "focusé" affiche une fiche avec **commentaires**, **photos** et un bouton **"Ouvrir dans Google Maps"**.
+Site web responsive mobile où les utilisateurs authentifiés ajoutent et consultent des **points d'intérêt** sur une carte. Un POI "focusé" affiche une fiche avec **commentaires**, **photos** et un bouton **"Ouvrir dans Google Maps"**. Site **en anglais par défaut** avec **traduction automatique en français** pour les visiteurs francophones (détection `navigator.language` + sélecteur FR/EN persistant).
 
 > Statut : **implémenté et testé de bout en bout** (voir [Statut & état](#statut--état)).
 
 ## Stack
-- **Frontend** : React 18 + TypeScript + Vite 6, React Router v7, `react-leaflet` + Leaflet 1.9, Tailwind CSS 3, Framer Motion
+- **Frontend** : React 18 + TypeScript + Vite 6, React Router v7, `react-leaflet` + Leaflet 1.9, Tailwind CSS 3, Framer Motion, **i18next + react-i18next** (i18n anglais/français)
 - **Backend** : Express 4 + TypeScript (tsx en dev, tsc → dist), Prisma ORM, JWT (jsonwebtoken)
 - **Auth** : email/mot-de-passe (bcryptjs) + Google OAuth (flux serveur, validation du token via `tokeninfo`)
 - **Photos** : upload local via `multer` 2.x, servi statiquement par Express (`/uploads`) ; les fichiers sont **partagés entre dev et Docker** via un bind mount (`./server/uploads`), et **supprimés du disque** quand une photo ou un POI est supprimé.
@@ -37,12 +37,17 @@ FihSpot/
 │   │   ├── favicon.svg
 │   │   ├── pwa-192x192.png / pwa-512x512.png / apple-touch-icon.png
 │   └── src/
-│       ├── main.tsx              # bootstrap React + registerSW (PWA)
+│       ├── main.tsx              # bootstrap React + registerSW (PWA) + import i18n
 │       ├── App.tsx               # AuthProvider + ToastProvider + router + transitions de page + OfflineBanner
 │       ├── index.css             # Tailwind + styles Leaflet (marqueurs, dark map, marker fade)
 │       ├── vite-env.d.ts         # types vite + vite-plugin-pwa/client
+│       ├── i18n/
+│       │   ├── index.ts          # init i18next : résolution langue (localStorage > navigator.language fr* → fr sinon en), <html lang> + <title> dynamiques, changeLanguage persistant (fihspot_lang)
+│       │   └── locales/
+│       │       ├── en.ts         # dictionnaire anglais (défaut)
+│       │       └── fr.ts         # dictionnaire français
 │       ├── api/
-│       │   ├── client.ts         # wrapper fetch + token JWT + cache user + erreurs offline-safe
+│       │   ├── client.ts         # wrapper fetch + token JWT + cache user + erreurs offline-safe ; codes d'erreur → traduction i18n (errors.<CODE>)
 │       │   └── types.ts          # User, PoI, PoISummary, Comment, Photo, Bounds
 │       ├── context/
 │       │   ├── AuthContext.tsx   # session depuis cache (hors-ligne), revalidation en arrière-plan
@@ -52,6 +57,7 @@ FihSpot/
 │       ├── components/
 │       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte (chip utilisateur → profil)
 │       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème)
+│       │   ├── LanguageToggle.tsx # bouton EN/FR (basculer la langue, persisté)
 │       │   ├── SearchBar.tsx     # recherche ville/lieu (Nominatim, debounce, dropdown)
 │       │   ├── UserLocationButton.tsx # localisation + centrage (au-dessus du FAB "+")
 │       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
@@ -73,22 +79,22 @@ FihSpot/
     ├── .env                      # config locale de dev (gitignoré)
     ├── prisma/
     │   ├── schema.prisma
-    │   ├── migrations/           # 20260812054708_init
-    │   └── seed.ts               # user démo + 5 POI à Marseille
+    │   ├── migrations/           # 20260812054708_init + 20260812232744_add_poi_demo_flag
+    │   └── seed.ts               # user démo + 5 POI à Marseille (demo=true, contenus en anglais)
     ├── uploads/                  # photos (volume Docker, gitignoré)
     └── src/
         ├── index.ts              # bootstrap listen
         ├── app.ts                # createApp() : CORS, JSON, routes, statique, error handler
-        ├── config.ts             # lecture .env
+        ├── config.ts             # lecture .env ; demoEnabled = NODE_ENV !== 'production'
         ├── prisma.ts             # singleton PrismaClient
         ├── types.ts              # augmentation Express.Request.user
         ├── middleware/
         │   ├── auth.ts           # requireAuth (Bearer JWT → req.user)
         │   ├── upload.ts         # multer (jpeg/png/webp/gif, 5 Mo, nom aléatoire)
-        │   └── errorHandler.ts   # ApiError + MulterError + fallback 500
+        │   └── errorHandler.ts   # ApiError (status, message, code) + MulterError + fallback 500
         ├── routes/
         │   ├── auth.ts           # register/login/google/me/config
-        │   ├── pois.ts           # CRUD POI + commentaires + photos
+        │   ├── pois.ts           # CRUD POI + commentaires + photos ; exclusion des POI demo en prod
         │   └── users.ts          # /api/me (contenu user) + /api/me/avatar (upload photo de profil)
         └── utils/
             ├── jwt.ts            # signToken / verifyToken
@@ -99,7 +105,7 @@ FihSpot/
 
 ### Modèle de données (Prisma — implémenté)
 - **User** : `id` (cuid), `email` (unique), `passwordHash?`, `googleId?` (unique), `name`, `avatarUrl?`, `createdAt`
-- **PoI** : `id`, `name`, `description?`, `lat`, `lng`, `category?`, `createdById → User`, `createdAt`, `updatedAt` ; index `[lat, lng]`
+- **PoI** : `id`, `name`, `description?`, `lat`, `lng`, `category?`, `demo` (booléen, défaut `false` — POI de démonstration), `createdById → User`, `createdAt`, `updatedAt` ; index `[lat, lng]`
 - **Comment** : `id`, `content`, `userId → User`, `poiId → PoI` (onDelete: Cascade), `createdAt`
 - **Photo** : `id`, `url`, `userId → User`, `poiId → PoI` (onDelete: Cascade), `createdAt`
 
@@ -123,11 +129,15 @@ volumes:
 | `npm run db:migrate` / `db:seed` | Migration Prisma + seed de démo |
 | `docker compose up --build` | Stack complète production-like : `http://localhost:8080` |
 
+- **POI de démo visibles uniquement en dev** : le seed crée des POI avec `demo = true` ; l'API les exclut quand `NODE_ENV=production` (défini dans le Dockerfile serveur). En dev local (`npm run dev`), `NODE_ENV` n'est pas défini → les POI de démo s'affichent.
+
 - Au démarrage en Docker, le server exécute `prisma migrate deploy` avant `node dist/index.js`.
 - Le client est servi par nginx : `try_files` SPA + reverse proxy `/api/` et `/uploads/` vers `server:3000`.
 - Config serveur injectée via variables d'environnement : `DATABASE_URL=postgresql://fihspot:fihspot@db:5432/fihspot`, `JWT_SECRET` (défaut Docker sinon), `GOOGLE_CLIENT_ID/SECRET`, `CLIENT_URL`.
 
 ## API (implémentée)
+> **Erreurs** : toutes les réponses d'erreur sont `{ error, code }` — message **en anglais par défaut** + **code machine stable** (ex. `EMAIL_TAKEN`, `POI_NOT_FOUND`, `INVALID_CREDENTIALS`, `UNAUTHORIZED`, `IMAGE_TYPE_UNSUPPORTED`). Le client traduit `code` → message localisé (`errors.<CODE>` dans les dictionnaires EN/FR) ; fallback sur `error` si code inconnu. `ApiError` (serveur) et `ApiError` (client) portent tous deux un `code`.
+
 ### Auth — `server/src/routes/auth.ts`
 | Méthode | Route | Description | Auth |
 |---|---|---|---|
@@ -140,8 +150,8 @@ volumes:
 ### Points d'intérêt — `server/src/routes/pois.ts`
 | Méthode | Route | Description | Auth |
 |---|---|---|---|
-| GET | `/api/pois` | liste + `_count` comments/photos ; filtres bounds `?swLat&swLng&neLat&neLng` | – |
-| GET | `/api/pois/:id` | détail complet (createdBy, comments, photos) | – |
+| GET | `/api/pois` | liste + `_count` comments/photos ; filtres bounds `?swLat&swLng&neLat&neLng` ; **exclut les POI `demo` en production** | – |
+| GET | `/api/pois/:id` | détail complet (createdBy, comments, photos) ; **404 si `demo` et `NODE_ENV=production`** | – |
 | POST | `/api/pois` | créer (name, description?, category?, lat, lng validés) | ✅ |
 | PATCH | `/api/pois/:id` | éditer name/description/category | ✅ auteur |
 | DELETE | `/api/pois/:id` | supprimer | ✅ auteur |
@@ -154,7 +164,7 @@ volumes:
 ### Profil utilisateur — `server/src/routes/users.ts`
 | Méthode | Route | Description | Auth |
 |---|---|---|---|
-| GET | `/api/me` | contenu du compte : `{ user, stats, pois, comments, photos }` | ✅ |
+| GET | `/api/me` | contenu du compte : `{ user, stats, pois, comments, photos }` ; **POI `demo` exclus en production** | ✅ |
 | POST | `/api/me/avatar` | upload multipart `avatar` (image ≤5 Mo) → `avatarUrl` mis à jour, ancien fichier upload supprimé | ✅ |
 
 ## UX frontend — design & animations (implémenté)
@@ -164,6 +174,14 @@ volumes:
 - **Tokens Tailwind** dans `tailwind.config.js` : palette `brand`, rayons (`rounded-2xl`/`3xl`), ombres `soft`/`float`, animations `fade-in`/`slide-up`.
 - **Dark mode** : implémenté — `ThemeContext` (stratégie `class`), bascule ☀️/🌙 visible dans la **Navbar** et sur les pages Login/Register, **persistée** (`fihspot_theme`) avec fallback `prefers-color-scheme` + script anti-flash dans `index.html`.
 - Overlays glassmorphism (Navbar, bannière "chargement"), focus rings accessibles, micro-hovers.
+
+### Internationalisation (i18n) — implémenté
+- **Langue par défaut : anglais** ; détection automatique : `localStorage['fihspot_lang']` → sinon `navigator.language` commençant par `fr` → **français**, sinon **anglais**. Initialisé dans `client/src/i18n/index.ts` (i18next + react-i18next).
+- **Sélecteur EN/FR** (`LanguageToggle.tsx`) à côté du toggle ☀️/🌙 : Navbar, header du profil, pages Login/Register ; le choix est **persisté** (`fihspot_lang`).
+- Tous les textes UI (boutons, placeholders, aria-labels, toasts, catégories, états vides, bannière hors-ligne) passent par `t('clé')` — dictionnaires `en.ts` / `fr.ts`. Plus aucun texte français codé en dur côté client (hors dictionnaire `fr`).
+- **Locale dynamique** : `toLocaleDateString(i18n.language, …)` (dates) et Nominatim `accept-language=<langue>` (recherche) suivent la langue active.
+- **Métadonnées** : `<html lang>` et `<title>` mis à jour à chaque changement de langue ; `index.html` et manifest PWA (`vite.config.ts`) en anglais par défaut (`lang: 'en'`).
+- **Erreurs API localisées** : le serveur renvoie `{ error, code }` (message anglais + code stable) ; le client traduit `errors.<CODE>` dans la langue active (toasts et messages de formulaire).
 
 ### Animations (Framer Motion)
 - **Transitions de page** : `AnimatePresence mode="wait"` + fade/slide entre routes.
@@ -236,9 +254,12 @@ volumes:
 | **Session JWT hors-ligne** (profil en cache, pas de logout sur erreur réseau) | ✅ implémenté |
 | **Uploads partagés dev/Docker** (bind mount) + suppression du fichier au delete photo/POI | ✅ implémenté |
 | **OfflineBanner + lecture seule hors-ligne** + fade de rafraîchissement | ✅ implémenté |
+| **Internationalisation** : anglais par défaut + auto-français (`navigator.language`) + sélecteur EN/FR persisté (`fihspot_lang`) | ✅ implémenté |
+| **Erreurs API localisées** : codes d'erreur stables `{ error, code }` + traduction EN/FR côté client | ✅ implémenté |
+| **POI de démo uniquement en dev** : flag `demo` (migration `add_poi_demo_flag`), exclus de l'API en production | ✅ implémenté |
 | Stack Docker complète (`docker compose up --build` → :8080) | ✅ testé |
 | Build client + serveur | ✅ OK |
-| Compte de test | `demo@fihspot.app` / `demo1234` |
+| Compte de test | `demo@fihspot.app` / `demo1234` (seed dev uniquement) |
 
 ## À configurer / à faire (optionnel)
 - **Google OAuth** : créer un projet Google Cloud, un OAuth Client ID, puis remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (dans `server/.env` en dev, ou variables d'environnement Compose). Tant que vides, le bouton Google est masqué.

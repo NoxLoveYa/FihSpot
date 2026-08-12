@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
 import './i18n';
+import '@fortawesome/fontawesome-svg-core/styles.css';
 
 registerSW({ immediate: true });
 

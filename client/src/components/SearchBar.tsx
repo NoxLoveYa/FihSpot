@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faLocationDot, faMagnifyingGlass, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { Spinner } from './Spinner';
@@ -92,10 +94,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
   return (
     <div ref={containerRef} className="pointer-events-auto absolute inset-x-3 top-16 z-[1250] mx-auto w-[calc(100%-1.5rem)] max-w-md">
       <div className="flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white/90 px-3.5 shadow-soft backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/90">
-        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current stroke-2 text-slate-400">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-        </svg>
+        <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -115,7 +114,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
               aria-label={t('search.clear')}
               className="grid h-6 w-6 place-items-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
             >
-              ✕
+              <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
             </button>
           )
         )}
@@ -136,7 +135,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
                   onClick={() => select(r)}
                   className="flex w-full items-start gap-2 px-3.5 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-brand-50 dark:text-slate-200 dark:hover:bg-slate-700/60"
                 >
-                  <span className="mt-0.5 shrink-0 text-slate-400">📍</span>
+                  <FontAwesomeIcon icon={faLocationDot} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <span className="line-clamp-2">{r.display_name}</span>
                 </button>
               </li>

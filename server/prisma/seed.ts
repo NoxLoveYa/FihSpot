@@ -19,7 +19,7 @@ async function main() {
     { name: 'Chez Michel Restaurant', description: 'A reference for bouillabaisse.', category: 'food', lat: 43.2986, lng: 5.3711 },
     { name: 'Notre-Dame de la Garde', description: 'Panoramic viewpoint over the city.', category: 'culture', lat: 43.284, lng: 5.3712 },
     { name: 'Prado Beach', description: 'Large urban beach, ideal at sunset.', category: 'nature', lat: 43.2546, lng: 5.3725 },
-  ];
+  ].map((poi) => ({ ...poi, demo: true }));
 
   await prisma.poI.deleteMany({ where: { createdById: demo.id } });
 

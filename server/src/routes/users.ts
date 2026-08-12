@@ -5,6 +5,7 @@ import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { unlinkUpload } from '../utils/files';
 import { publicUser } from '../utils/serialize';
+import { config } from '../config';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
 
     const [pois, comments, photos] = await Promise.all([
       prisma.poI.findMany({
-        where: { createdById: userId },
+        where: { createdById: userId, ...(config.demoEnabled ? {} : { demo: false }) },
         include: { _count: { select: { comments: true, photos: true } } },
         orderBy: { createdAt: 'desc' },
       }),

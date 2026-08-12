@@ -3,6 +3,8 @@ import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LatLng } from 'leaflet';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faLocationDot, faMapLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { Button } from './Button';
@@ -28,11 +30,11 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
 
   const categories = [
     { value: '', label: t('categories.general') },
-    { value: 'culture', label: `🏛 ${t('categories.culture')}` },
-    { value: 'nature', label: `🌿 ${t('categories.nature')}` },
-    { value: 'food', label: `🍽 ${t('categories.food')}` },
-    { value: 'sport', label: `⚽ ${t('categories.sport')}` },
-    { value: 'shop', label: `🛍 ${t('categories.shop')}` },
+    { value: 'culture', label: t('categories.culture') },
+    { value: 'nature', label: t('categories.nature') },
+    { value: 'food', label: t('categories.food') },
+    { value: 'sport', label: t('categories.sport') },
+    { value: 'shop', label: t('categories.shop') },
   ];
 
   async function submit(e: FormEvent) {
@@ -89,13 +91,24 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
             onClick={onCancel}
             className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
           >
-            ✕
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
 
-        <div className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
-          📍 {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+        <div className="flex items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+          <FontAwesomeIcon icon={faLocationDot} className="h-3.5 w-3.5" />
+          {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
         </div>
+
+        <a
+          href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+        >
+          <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
+          {t('poi.openInMaps')}
+        </a>
 
         {error && <p className="text-sm font-medium text-rose-500">{error}</p>}
 

@@ -3,6 +3,16 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-lea
 import L from 'leaflet';
 import type { LatLng, Map as LeafletMap } from 'leaflet';
 import { useTranslation } from 'react-i18next';
+import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import {
+  faLandmark,
+  faLeaf,
+  faUtensils,
+  faFutbol,
+  faBagShopping,
+  faLocationDot,
+} from '@fortawesome/free-solid-svg-icons';
 import type { Bounds, PoISummary } from '../api/types';
 
 const categoryColors: Record<string, string> = {
@@ -18,27 +28,28 @@ function categoryColor(category: string | null): string {
   return '#6366f1';
 }
 
-function categoryIcon(category: string | null): string {
-  switch (category) {
-    case 'culture':
-      return '🏛';
-    case 'nature':
-      return '🌿';
-    case 'food':
-      return '🍽';
-    case 'sport':
-      return '⚽';
-    case 'shop':
-      return '🛍';
-    default:
-      return '📍';
-  }
+const categoryIcons: Record<string, IconDefinition> = {
+  culture: faLandmark,
+  nature: faLeaf,
+  food: faUtensils,
+  sport: faFutbol,
+  shop: faBagShopping,
+};
+
+function categoryIcon(category: string | null): IconDefinition {
+  if (category && categoryIcons[category]) return categoryIcons[category];
+  return faLocationDot;
+}
+
+function categoryIconHtml(category: string | null): string {
+  const rendered = faIcon(categoryIcon(category));
+  return rendered ? rendered.html[0] : '';
 }
 
 function makeIcon(category: string | null): L.DivIcon {
   return L.divIcon({
     className: 'custom-marker',
-    html: `<div class="marker-pin" style="background:${categoryColor(category)}"><span>${categoryIcon(category)}</span></div>`,
+    html: `<div class="marker-pin" style="background:${categoryColor(category)}">${categoryIconHtml(category)}</div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 34],
     popupAnchor: [0, -32],

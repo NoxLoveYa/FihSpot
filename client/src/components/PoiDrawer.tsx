@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMapLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -175,7 +177,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                     aria-label={t('poi.close')}
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300"
                   >
-                    ✕
+                    <FontAwesomeIcon icon={faXmark} />
                   </button>
                 </div>
 
@@ -188,9 +190,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                     rel="noopener noreferrer"
                     className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
                   >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-                    </svg>
+                    <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
                     {t('poi.openInMaps')}
                   </a>
 
@@ -225,7 +225,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                                 aria-label={t('poi.deletePhoto')}
                                 className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/50 text-xs text-white transition-opacity group-hover:opacity-100 md:opacity-0"
                               >
-                                ✕
+                                <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
                               </button>
                             )}
                           </div>

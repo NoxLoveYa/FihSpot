@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { unlinkUpload } from '../utils/files';
+import { config } from '../config';
 
 const router = Router();
 
@@ -32,13 +33,15 @@ router.get('/', async (req, res, next) => {
     const { swLat, swLng, neLat, neLng } = req.query as Record<string, string | undefined>;
 
     const pois = await prisma.poI.findMany({
-      where:
-        swLat && swLng && neLat && neLng
+      where: {
+        ...(config.demoEnabled ? {} : { demo: false }),
+        AND: swLat && swLng && neLat && neLng
           ? {
               lat: { gte: Number(swLat), lte: Number(neLat) },
               lng: { gte: Number(swLng), lte: Number(neLng) },
             }
           : undefined,
+      },
       include: {
         createdBy: { select: { id: true, name: true, avatarUrl: true } },
         _count: { select: { comments: true, photos: true } },
@@ -60,6 +63,7 @@ router.get('/:id', async (req, res, next) => {
     });
 
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
+    if (poi.demo && !config.demoEnabled) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
     res.json({ poi });
   } catch (e) {
     next(e);

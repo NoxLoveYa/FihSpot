@@ -76,6 +76,13 @@
   color: #fff;
 }
 
+.marker-pin > svg {
+  transform: rotate(45deg);
+  width: 15px;
+  height: 15px;
+  color: #fff;
+}
+
 .marker-selected-ring {
   width: 48px;
   height: 48px;
