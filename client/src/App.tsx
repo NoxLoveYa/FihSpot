@@ -9,6 +9,7 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { MapPage } from './pages/MapPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function PageTransition({ children }: { children: ReactNode }) {
   return (
@@ -36,6 +37,16 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <PageTransition>
                 <MapPage />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <ProfilePage />
               </PageTransition>
             </ProtectedRoute>
           }

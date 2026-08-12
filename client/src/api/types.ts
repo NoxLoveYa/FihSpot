@@ -44,3 +44,36 @@ export interface Bounds {
   neLat: number;
   neLng: number;
 }
+
+export interface UserPoi {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  lat: number;
+  lng: number;
+  createdAt: string;
+  _count: { comments: number; photos: number };
+}
+
+export interface UserComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  poi: { id: string; name: string; lat: number; lng: number };
+}
+
+export interface UserPhoto {
+  id: string;
+  url: string;
+  createdAt: string;
+  poi: { id: string; name: string; lat: number; lng: number };
+}
+
+export interface UserContent {
+  user: User;
+  stats: { pois: number; comments: number; photos: number };
+  pois: UserPoi[];
+  comments: UserComment[];
+  photos: UserPhoto[];
+}

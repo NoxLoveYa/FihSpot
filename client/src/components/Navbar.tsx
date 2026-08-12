@@ -21,7 +21,11 @@ export function Navbar() {
         <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
         {user ? (
           <>
-            <div className="hidden items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 shadow-soft backdrop-blur-md sm:flex dark:bg-slate-800/80">
+            <button
+              onClick={() => navigate('/profile')}
+              title="Mon profil"
+              className="hidden items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 shadow-soft backdrop-blur-md transition-colors hover:bg-white sm:flex dark:bg-slate-800/80 dark:hover:bg-slate-700"
+            >
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
               ) : (
@@ -32,7 +36,20 @@ export function Navbar() {
               <span className="max-w-[160px] truncate text-sm font-medium text-slate-700 dark:text-slate-200">
                 {user.name}
               </span>
-            </div>
+            </button>
+            <button
+              onClick={() => navigate('/profile')}
+              aria-label="Mon profil"
+              className="grid h-10 w-10 place-items-center rounded-full bg-white/80 shadow-soft backdrop-blur-md transition-colors hover:bg-white sm:hidden dark:bg-slate-800/80 dark:hover:bg-slate-700"
+            >
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+                  {user.name.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => {
                 logout();

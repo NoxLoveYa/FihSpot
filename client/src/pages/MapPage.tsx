@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LatLng, Map } from 'leaflet';
-import { latLng } from 'leaflet';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { latLng } from 'leaflet';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +18,7 @@ import { FullScreenLoader } from '../components/Spinner';
 export function MapPage() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const mapRef = useRef<Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -24,7 +26,17 @@ export function MapPage() {
   const [draftPosition, setDraftPosition] = useState<LatLng | null>(null);
   const [userPosition, setUserPosition] = useState<LatLng | null>(null);
   const [searchPosition, setSearchPosition] = useState<LatLng | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    const poiId = searchParams.get('poi');
+    if (poiId) {
+      setSelectedId(poiId);
+      setPendingFocus(poiId);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const loadBounds = useCallback(
     async (bounds: Bounds) => {
@@ -75,6 +87,20 @@ export function MapPage() {
     setUserPosition(position);
   }, []);
 
+  const handleMapReady = useCallback(
+    (map: Map) => {
+      mapRef.current = map;
+      if (pendingFocus) {
+        api
+          .getPoi(pendingFocus)
+          .then(({ poi }) => map.flyTo([poi.lat, poi.lng], 15, { duration: 0.6 }))
+          .catch(() => {});
+        setPendingFocus(null);
+      }
+    },
+    [pendingFocus],
+  );
+
   if (loading) return <FullScreenLoader />;
 
   return (
@@ -87,9 +113,7 @@ export function MapPage() {
         draftPosition={adding ? draftPosition : null}
         userPosition={userPosition}
         searchPosition={searchPosition}
-        onMapReady={(map) => {
-          mapRef.current = map;
-        }}
+        onMapReady={handleMapReady}
         onBoundsChange={loadBounds}
         onSelect={(id) => {
           setSelectedId(id);

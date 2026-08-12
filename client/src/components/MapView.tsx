@@ -164,7 +164,14 @@ export function MapView({
 
   return (
     <div className="relative h-full w-full">
-      <MapContainer center={center} zoom={13} className="h-full w-full" zoomControl={false}>
+      <MapContainer
+        center={center}
+        zoom={13}
+        className="h-full w-full"
+        zoomControl={false}
+        fadeAnimation={false}
+        markerZoomAnimation={false}
+      >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

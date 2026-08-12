@@ -1,19 +1,11 @@
 import { Router } from 'express';
-import fs from 'fs';
-import path from 'path';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
-import { config } from '../config';
+import { unlinkUpload } from '../utils/files';
 
 const router = Router();
-
-function unlinkUpload(url: string) {
-  const filename = path.basename(url);
-  const filePath = path.join(config.uploadsDir, filename);
-  fs.promises.unlink(filePath).catch(() => {});
-}
 
 const poiInclude = {
   createdBy: { select: { id: true, name: true, avatarUrl: true } },

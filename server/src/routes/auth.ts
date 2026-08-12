@@ -5,18 +5,9 @@ import { signToken } from '../utils/jwt';
 import { requireAuth } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
 import { config } from '../config';
+import { publicUser } from '../utils/serialize';
 
 const router = Router();
-
-function publicUser(user: { id: string; email: string; name: string; avatarUrl: string | null; createdAt: Date }) {
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    avatarUrl: user.avatarUrl,
-    createdAt: user.createdAt,
-  };
-}
 
 router.post('/register', async (req, res, next) => {
   try {

@@ -50,7 +50,7 @@ FihSpot/
 │       │   └── ThemeContext.tsx  # thème light/dark persisté (localStorage) + class "dark"
 │       ├── hooks/useMediaQuery.ts
 │       ├── components/
-│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte
+│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte (chip utilisateur → profil)
 │       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème)
 │       │   ├── SearchBar.tsx     # recherche ville/lieu (Nominatim, debounce, dropdown)
 │       │   ├── UserLocationButton.tsx # localisation + centrage (au-dessus du FAB "+")
@@ -62,7 +62,8 @@ FihSpot/
 │       │   ├── ProtectedRoute.tsx
 │       │   ├── Button.tsx / Input.tsx / Logo.tsx / Spinner.tsx
 │       └── pages/
-│           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états
+│           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états (+ focus ?poi=)
+│           ├── ProfilePage.tsx   # profil : avatar upload, stats, onglets points/commentaires/photos
 │           ├── LoginPage.tsx
 │           └── RegisterPage.tsx
 └── server/
@@ -87,10 +88,13 @@ FihSpot/
         │   └── errorHandler.ts   # ApiError + MulterError + fallback 500
         ├── routes/
         │   ├── auth.ts           # register/login/google/me/config
-        │   └── pois.ts           # CRUD POI + commentaires + photos
+        │   ├── pois.ts           # CRUD POI + commentaires + photos
+        │   └── users.ts          # /api/me (contenu user) + /api/me/avatar (upload photo de profil)
         └── utils/
             ├── jwt.ts            # signToken / verifyToken
-            └── password.ts       # bcrypt hash / compare
+            ├── password.ts       # bcrypt hash / compare
+            ├── serialize.ts      # publicUser (profil sérialisé)
+            └── files.ts          # unlinkUpload (suppression fichier upload)
 ```
 
 ### Modèle de données (Prisma — implémenté)
@@ -147,6 +151,12 @@ volumes:
 | DELETE | `/api/pois/photos/:photoId` | supprimer (DB **et fichier disque**) | ✅ auteur |
 | GET | `/uploads/:file` | photos servies statiquement | – |
 
+### Profil utilisateur — `server/src/routes/users.ts`
+| Méthode | Route | Description | Auth |
+|---|---|---|---|
+| GET | `/api/me` | contenu du compte : `{ user, stats, pois, comments, photos }` | ✅ |
+| POST | `/api/me/avatar` | upload multipart `avatar` (image ≤5 Mo) → `avatarUrl` mis à jour, ancien fichier upload supprimé | ✅ |
+
 ## UX frontend — design & animations (implémenté)
 
 ### Direction artistique
@@ -168,6 +178,7 @@ volumes:
 - **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
 - **FAB masqué quand une fiche POI est ouverte** (`!selectedId`) pour ne pas obstruer la vue ; réapparaît à la fermeture du drawer.
 - **Localisation** : bouton 🎯 flottant **au-dessus du FAB "+"** (`bottom-24`), `map.locate({ setView })` → centrage sur l'utilisateur + **point bleu pulsant** (`userPosition`) ; toast d'erreur si localisation refusée/indisponible.
+- **Page profil** (`/profile`, via le chip utilisateur dans la navbar) : avatar (upload 📷 → `POST /api/me/avatar`), nom/email/date d'inscription, compteurs, onglets **Points / Commentaires / Photos** ; clic sur un élément → `/?poi=<id>` → la carte se centre sur le POI et ouvre sa fiche (`pendingFocus` + `flyTo`).
 - **Recherche ville/lieu** : barre `SearchBar` sous la Navbar (glass, debounce 350 ms) → **Nominatim** (`format=jsonv2`, monde entier, CORS OK) → dropdown (5 résultats) → `flyTo` au lieu choisi + **marqueur de recherche** (point turquoise pulsant, `searchPosition`, non cliquable). Fermeture au clic extérieur/Escape. Recherche et bouton 🎯 masqués quand une fiche POI est ouverte ; le marqueur se retire quand on sélectionne un POI ou place un nouveau point.
 - **Desktop** : side-panel 420 px à droite, carte visible à côté.
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
@@ -217,7 +228,9 @@ volumes:
 | **Dark mode** : toggle ☀️/🌙 visible (Navbar + pages auth) + persistance (`fihspot_theme`) | ✅ implémenté |
 | **FAB masqué quand une fiche POI est ouverte** | ✅ implémenté |
 | **Localisation utilisateur** : bouton 🎯 au-dessus du FAB + point bleu pulsant + centrage | ✅ implémenté |
-| **Recherche ville/lieu** (Nominatim, debounce, dropdown, flyTo) | ✅ implémenté |
+| **Recherche ville/lieu** (Nominatim, debounce, dropdown, flyTo + marqueur) | ✅ implémenté |
+| **Page profil** (`/profile`) : avatar custom, stats, onglets points/commentaires/photos | ✅ implémenté |
+| **Clic profil → POI sur la carte** (`/?poi=` + flyTo + ouverture fiche) | ✅ implémenté |
 | **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
 | **Cache hors-ligne + fraîcheur en ligne** (spots/fiches/photos/tuiles, NetworkFirst + CacheFirst) | ✅ implémenté |
 | **Session JWT hors-ligne** (profil en cache, pas de logout sur erreur réseau) | ✅ implémenté |

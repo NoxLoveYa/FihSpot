@@ -1,4 +1,4 @@
-import type { Bounds, Comment, Photo, PoI, PoISummary, User } from './types';
+import type { Bounds, Comment, Photo, PoI, PoISummary, User, UserContent } from './types';
 
 const API_URL = '/api';
 
@@ -103,6 +103,14 @@ export const api = {
     }),
   me: () => request<{ user: User }>('/auth/me'),
   authConfig: () => request<{ googleClientId: string | null }>('/auth/config'),
+
+  // Profile
+  meContent: () => request<UserContent>('/me'),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('avatar', file);
+    return request<{ user: User }>('/me/avatar', { method: 'POST', body: form });
+  },
 
   // PoIs
   listPois: (bounds?: Bounds) => {

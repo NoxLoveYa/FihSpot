@@ -18,6 +18,7 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -92,9 +93,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((updated: User) => {
+    setUser(updated);
+    setCachedUser(updated);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, login, register, googleLogin, logout }),
-    [user, loading, login, register, googleLogin, logout],
+    () => ({ user, loading, login, register, googleLogin, logout, updateUser }),
+    [user, loading, login, register, googleLogin, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
