@@ -16,7 +16,8 @@ import { AddPoiPanel } from '../components/AddPoiPanel';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationButton } from '../components/UserLocationButton';
 import { Navbar } from '../components/Navbar';
-import { FullScreenLoader } from '../components/Spinner';
+import { FullScreenLoader, Spinner } from '../components/Spinner';
+import { getPreviousPath } from '../navigation';
 
 export function MapPage() {
   const { t } = useTranslation();
@@ -32,6 +33,11 @@ export function MapPage() {
   const [searchPosition, setSearchPosition] = useState<LatLng | null>(null);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [locating, setLocating] = useState(false);
+  const [shouldAutoLocate] = useState(() => {
+    const prev = getPreviousPath();
+    return prev === null || prev === '/login' || prev === '/register' || prev === '/profile';
+  });
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -100,9 +106,20 @@ export function MapPage() {
           .then(({ poi }) => map.flyTo([poi.lat, poi.lng], 15, { duration: 0.6 }))
           .catch(() => {});
         setPendingFocus(null);
+      } else if (shouldAutoLocate) {
+        setLocating(true);
+        map.locate({ setView: true, maxZoom: 16 });
+        map.once('locationfound', (e) => {
+          setLocating(false);
+          setUserPosition(e.latlng);
+        });
+        map.once('locationerror', () => {
+          setLocating(false);
+          toast(t('locate.error'), 'error');
+        });
       }
     },
-    [pendingFocus],
+    [pendingFocus, shouldAutoLocate, toast, t],
   );
 
   if (loading) return <FullScreenLoader />;
@@ -158,7 +175,23 @@ export function MapPage() {
         }}
       />
 
-      {!selectedId && <UserLocationButton map={mapRef.current} onLocate={handleLocate} autoTrigger={!pendingFocus} />}
+      {!selectedId && (
+        <UserLocationButton
+          map={mapRef.current}
+          onLocate={handleLocate}
+          locating={locating}
+          onLocatingChange={setLocating}
+        />
+      )}
+
+      {locating && (
+        <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
+          <div className="flex items-center gap-2.5 rounded-xl bg-white/90 px-4 py-2.5 text-sm font-medium text-slate-600 shadow-soft backdrop-blur dark:bg-slate-800/90 dark:text-slate-200">
+            <Spinner className="h-4 w-4 border-slate-300 border-t-brand-600" />
+            {t('locate.locating')}
+          </div>
+        </div>
+      )}
 
       {user && !selectedId && (
         <button

@@ -97,6 +97,7 @@ export const en = {
 
   'locate.error': 'Location unavailable',
   'locate.me': 'Locate me',
+  'locate.locating': 'Locating you…',
 
   'loading.full': 'Loading…',
 

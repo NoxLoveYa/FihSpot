@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import type { LatLng, Map } from 'leaflet';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -9,39 +9,32 @@ import { Spinner } from './Spinner';
 interface UserLocationButtonProps {
   map: Map | null;
   onLocate: (position: LatLng) => void;
-  autoTrigger?: boolean;
+  locating: boolean;
+  onLocatingChange: (locating: boolean) => void;
 }
 
-export function UserLocationButton({ map, onLocate, autoTrigger = false }: UserLocationButtonProps) {
+export function UserLocationButton({ map, onLocate, locating, onLocatingChange }: UserLocationButtonProps) {
   const { t } = useTranslation();
-  const [locating, setLocating] = useState(false);
   const locatingRef = useRef(false);
-  const autoFiredRef = useRef(false);
   const { toast } = useToast();
 
   const handleClick = useCallback(() => {
     if (!map || locatingRef.current) return;
     locatingRef.current = true;
-    setLocating(true);
+    onLocatingChange(true);
 
     map.locate({ setView: true, maxZoom: 16 });
     map.once('locationfound', (e) => {
       locatingRef.current = false;
-      setLocating(false);
+      onLocatingChange(false);
       onLocate(e.latlng);
     });
     map.once('locationerror', () => {
       locatingRef.current = false;
-      setLocating(false);
+      onLocatingChange(false);
       toast(t('locate.error'), 'error');
     });
-  }, [map, onLocate, toast, t]);
-
-  useEffect(() => {
-    if (!autoTrigger || !map || autoFiredRef.current) return;
-    autoFiredRef.current = true;
-    handleClick();
-  }, [autoTrigger, map, handleClick]);
+  }, [map, onLocate, toast, t, onLocatingChange]);
 
   return (
     <button

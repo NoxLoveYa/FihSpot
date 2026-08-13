@@ -97,6 +97,7 @@ export const fr = {
 
   'locate.error': 'Localisation indisponible',
   'locate.me': 'Me localiser',
+  'locate.locating': 'Localisation en cours…',
 
   'loading.full': 'Chargement…',
 

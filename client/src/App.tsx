@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -10,6 +11,7 @@ import { MapPage } from './pages/MapPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { setPreviousPath } from './navigation';
 
 function PageTransition({ children }: { children: ReactNode }) {
   return (
@@ -27,6 +29,12 @@ function PageTransition({ children }: { children: ReactNode }) {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const prevPathRef = useRef<string | null>(null);
+
+  if (prevPathRef.current !== location.pathname) {
+    setPreviousPath(prevPathRef.current);
+    prevPathRef.current = location.pathname;
+  }
 
   return (
     <AnimatePresence mode="wait" initial={false}>
