@@ -42,7 +42,8 @@ FihSpot/
 │       ├── index.css             # Tailwind + styles Google Maps (marqueurs, dark map, marker fade)
 │       ├── vite-env.d.ts         # types vite + vite-plugin-pwa/client + @types/google.maps + ImportMetaEnv
 │       ├── lib/
-│       │   └── googleMaps.ts     # loader Google Maps (@googlemaps/js-api-loader, library "marker") + export MAP_ID + type LatLng
+│       │   ├── googleMaps.ts     # loader Google Maps (@googlemaps/js-api-loader, library "marker") + export MAP_ID + type LatLng + staticMapUrl()
+│       │   └── poiCategories.ts  # couleurs/icônes partagées par catégorie (carte + page POIs)
 │       ├── i18n/
 │       │   ├── index.ts          # init i18next : résolution langue (localStorage > navigator.language fr* → fr sinon en), <html lang> + <title> dynamiques, changeLanguage persistant (fihspot_lang)
 │       │   └── locales/
@@ -57,20 +58,22 @@ FihSpot/
 │       │   └── ThemeContext.tsx  # thème light/dark persisté (localStorage) + class "dark" ; pilote aussi le colorScheme de la carte
 │       ├── hooks/useMediaQuery.ts
 │       ├── components/
-│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte (chip utilisateur → profil)
+│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte (chip utilisateur → profil) + bouton "Explorer" → /pois
 │       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème, y compris celui de la carte)
 │       │   ├── LanguageToggle.tsx # bouton EN/FR (basculer la langue, persisté)
+│       │   ├── MapTypeToggle.tsx # contrôle custom Carte/Satellite (remplace le contrôle natif Google Maps)
 │       │   ├── SearchBar.tsx     # recherche ville/lieu (Nominatim, debounce, dropdown)
 │       │   ├── UserLocationButton.tsx # localisation (navigator.geolocation) + centrage (au-dessus du FAB "+")
 │       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
-│       │   ├── GoogleMapView.tsx # carte Google Maps (Advanced Markers, bounds, géoloc, mode ajout, colorScheme light/dark)
-│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh
+│       │   ├── GoogleMapView.tsx # carte Google Maps (Advanced Markers, bounds, géoloc, mode ajout, colorScheme, minZoom + restriction, mapType)
+│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh + bouton "Voir sur la carte" (optionnel)
 │       │   ├── AddPoiPanel.tsx   # formulaire création après placement sur la carte
 │       │   ├── GoogleButton.tsx  # Google Identity Services (bouton "Continuer avec Google")
 │       │   ├── ProtectedRoute.tsx
 │       │   ├── Button.tsx / Input.tsx / Logo.tsx / Spinner.tsx
 │       └── pages/
 │           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états (+ focus ?poi=)
+│           ├── PoisPage.tsx      # page POIs (grille) : recherche + filtres catégorie + tri + mini-cartes (Static API) + drawer détail
 │           ├── ProfilePage.tsx   # profil : avatar upload, stats, onglets points/commentaires/photos
 │           ├── LoginPage.tsx
 │           └── RegisterPage.tsx
@@ -153,7 +156,7 @@ volumes:
 ### Points d'intérêt — `server/src/routes/pois.ts`
 | Méthode | Route | Description | Auth |
 |---|---|---|---|
-| GET | `/api/pois` | liste + `_count` comments/photos ; filtres bounds `?swLat&swLng&neLat&neLng` ; **exclut les POI `demo` en production** | – |
+| GET | `/api/pois` | liste + `_count` comments/photos ; filtres bounds `?swLat&swLng&neLat&neLng` ; `?lastComment=1` → inclut le dernier commentaire (`take:1`, desc) ; **exclut les POI `demo` en production** | – |
 | GET | `/api/pois/:id` | détail complet (createdBy, comments, photos) ; **404 si `demo` et `NODE_ENV=production`** | – |
 | POST | `/api/pois` | créer (name, description?, category?, lat, lng validés) | ✅ |
 | PATCH | `/api/pois/:id` | éditer name/description/category | ✅ auteur |
@@ -193,7 +196,8 @@ volumes:
 - **Formulaires** : shake horizontal des inputs en erreur, spinners (login/register, commentaire, upload).
 - **Toasts** : slide-in/dismiss animés (success/error/info).
 - **Marqueurs Google Maps (Advanced Markers)** : `AdvancedMarkerElement` + contenu HTML (`.marker-pin` pins catégorisés, anneau de sélection pulsant, points de localisation/recherche), `gmpClickable` + évènement `gmp-click` pour la sélection, `gmpClickable` des marqueurs décoratifs à `false`. Nécessite un **Map ID** (vecteur) — c'est aussi lui qui autorise `colorScheme`.
-- **Skeletons** : fiche POI en chargement (shimmer).
+- **Skeletons** : fiche POI en chargement (shimmer) + grille de la page POIs.
+- **Page POIs** : grille responsive avec **layout animations** (entrée/sortie/`layout` des cartes au filtrage) — `PoisPage.tsx`.
 
 ### Responsive & ergonomie tactile
 - **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
@@ -203,7 +207,9 @@ volumes:
 - **Recherche ville/lieu** : barre `SearchBar` sous la Navbar (glass, debounce 350 ms) → **Nominatim** (`format=jsonv2`, monde entier, CORS OK) → dropdown (5 résultats) → `panTo` au lieu choisi + **marqueur de recherche** (point turquoise pulsant, `searchPosition`, non cliquable). Fermeture au clic extérieur/Escape. Recherche et bouton 🎯 masqués quand une fiche POI est ouverte ; le marqueur se retire quand on sélectionne un POI ou place un nouveau point.
 - **Desktop** : side-panel 420 px à droite, carte visible à côté.
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
-- Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout, **contrôle natif Carte/Satellite** (map type control, `mapTypeControl: true`) + **inclinaison 45°** automatique en vue satellite (paysage 3D) — `setTilt(45)`/`setTilt(0)` via `maptypeid_changed`.
+- Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout, **contrôle custom Carte/Satellite** (`MapTypeToggle`, `mapTypeControl: false`) dans la Navbar + **inclinaison 45°** automatique en vue satellite (paysage 3D) — `setTilt(45)`/`setTilt(0)` via `maptypeid_changed`.
+- **Carte sans répétition du monde** : `minZoom` dynamique (`ceil(log2(largeur/256))`) + `restriction { latLngBounds: ±85°/±180°, strictBounds: true }` → impossible de dézoomer ou glisser vers les textures dupliquées.
+- **Page POIs** (`/pois`, bouton « Explorer » dans la Navbar) : barre de **recherche** (nom+description, debounce), **chips de filtre par catégorie** (pastilles colorées), **tri** (récents / plus commentés), **grille** `sm:2 lg:3 xl:4` de cartes POI. Chaque carte : **mini-carte** (Google Maps **Static API** via `staticMapUrl()`, fallback dégradé couleur si erreur), badge catégorie, nom, description (clampée), **dernier commentaire** (si présent), auteur/avatar + date, compteurs 💬/📷. Clic → **drawer de détail sur place** (`PoiDrawer`, photos/commentaires réutilisés) + bouton **« Voir sur la carte »** (`onViewOnMap`) → `/?poi=<id>`.
 
 ## Hors-ligne & cache-first (PWA, implémenté)
 
@@ -243,6 +249,8 @@ volumes:
 | Auth email/mot de passe (JWT + bcrypt) + AuthContext + ProtectedRoute | ✅ implémenté |
 | Google OAuth (endpoint serveur + GoogleButton client) | ✅ implémenté |
 | Carte Google Maps (Advanced Markers, Map ID, bounds, géoloc, mode ajout, vue plan/satellite + inclinaison 45°) | ✅ implémenté |
+| **Contrôle Carte/Satellite custom** (`MapTypeToggle` dans la Navbar, contrôle natif désactivé) | ✅ implémenté |
+| **Carte sans textures dupliquées** (`minZoom` dynamique + `restriction` `strictBounds`) | ✅ implémenté |
 | Fiche POI (drawer animé, commentaires, photos, bouton Google Maps, suppression) | ✅ implémenté |
 | Ajout de POI (placement clic + formulaire) | ✅ implémenté |
 | Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
@@ -252,6 +260,8 @@ volumes:
 | **Recherche ville/lieu** (Nominatim, debounce, dropdown, panTo + marqueur) | ✅ implémenté |
 | **Page profil** (`/profile`) : avatar custom, stats, onglets points/commentaires/photos | ✅ implémenté |
 | **Clic profil → POI sur la carte** (`/?poi=` + panTo + ouverture fiche) | ✅ implémenté |
+| **Page POIs** (`/pois`) : grille + mini-cartes (Static API, fallback) + recherche + filtres catégorie + tri + drawer détail + bouton « Voir sur la carte » | ✅ implémenté |
+| **Dernier commentaire** dans la liste (`?lastComment=1` sur `GET /api/pois`) | ✅ implémenté |
 | **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
 | **Cache hors-ligne + fraîcheur en ligne** (spots/fiches/photos, NetworkFirst + CacheFirst ; tuiles retirées car Google Maps requiert le réseau) | ✅ implémenté |
 | **Session JWT hors-ligne** (profil en cache, pas de logout sur erreur réseau) | ✅ implémenté |
@@ -267,7 +277,8 @@ volumes:
 ## À configurer / à faire (optionnel)
 - **Google OAuth** : créer un projet Google Cloud, un OAuth Client ID, puis remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (dans `server/.env` en dev, ou variables d'environnement Compose). Tant que vides, le bouton Google est masqué.
 - **Google Maps** : clé API **Maps JavaScript API** (`VITE_GOOGLE_MAPS_API_KEY`) et **Map ID** (`VITE_GOOGLE_MAPS_MAP_ID`) à renseigner dans `.env` (racine, pour Docker) et `client/.env` (dev local). Le Map ID est obligatoire pour les Advanced Markers et le `colorScheme`. Restreindre la clé aux HTTP referrers `https://fihspot.com/*` / `https://www.fihspot.com/*`.
+- **Maps Static API** : activer l'API **« Maps Static API »** sur le projet Google Cloud pour les mini-cartes de la page POIs (`staticMapUrl()`). Sinon, le fallback (dégradé couleur catégorie) s'affiche. Quota gratuit 25 000 requêtes/jour.
 - **`JWT_SECRET`** : générer un secret fort et le définir (dev + Compose).
 - **HTTPS** : le service worker PWA n'est actif qu'en HTTPS (ou localhost). En production réelle, configurer un certificat (ex. Caddy/Traefik) devant nginx.
 - **Tests d'API** : supertest (non ajouté à ce jour).
-- **Recherche / filtres par catégorie** sur la carte : prévus en roadmap, non implémentés.
+- **Recherche / filtres par catégorie sur la carte** : désormais disponibles sur la page POIs (`/pois`) ; pas encore implémentés directement sur la carte (roadmap).

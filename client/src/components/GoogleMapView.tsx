@@ -1,50 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import {
-  faLandmark,
-  faLeaf,
-  faUtensils,
-  faFutbol,
-  faBagShopping,
-  faLocationDot,
-} from '@fortawesome/free-solid-svg-icons';
 import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
+import { categoryColor, categoryIconHtml } from '../lib/poiCategories';
 import { useTheme } from '../context/ThemeContext';
 import type { MapType } from './MapTypeToggle';
 import type { Bounds, PoISummary } from '../api/types';
-
-const categoryColors: Record<string, string> = {
-  culture: '#8b5cf6',
-  nature: '#10b981',
-  food: '#f59e0b',
-  sport: '#ef4444',
-  shop: '#06b6d4',
-};
-
-function categoryColor(category: string | null): string {
-  if (category && categoryColors[category]) return categoryColors[category];
-  return '#6366f1';
-}
-
-const categoryIcons: Record<string, IconDefinition> = {
-  culture: faLandmark,
-  nature: faLeaf,
-  food: faUtensils,
-  sport: faFutbol,
-  shop: faBagShopping,
-};
-
-function categoryIcon(category: string | null): IconDefinition {
-  if (category && categoryIcons[category]) return categoryIcons[category];
-  return faLocationDot;
-}
-
-function categoryIconHtml(category: string | null): string {
-  const rendered = faIcon(categoryIcon(category));
-  return rendered ? rendered.html[0] : '';
-}
 
 function pinHtml(category: string | null): string {
   return `<div class="marker-pin" style="background:${categoryColor(category)}">${categoryIconHtml(category)}</div>`;
@@ -131,6 +91,10 @@ export function GoogleMapView({
           center,
           zoom,
           minZoom,
+          restriction: {
+            latLngBounds: { north: 85, south: -85, west: -180, east: 180 },
+            strictBounds: true,
+          },
           mapId: MAP_ID,
           colorScheme: theme === 'dark' ? 'DARK' : 'LIGHT',
           mapTypeControl: false,

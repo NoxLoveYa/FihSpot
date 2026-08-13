@@ -121,10 +121,13 @@ export const api = {
   },
 
   // PoIs
-  listPois: (bounds?: Bounds) => {
-    const qs = bounds
-      ? `?swLat=${bounds.swLat}&swLng=${bounds.swLng}&neLat=${bounds.neLat}&neLng=${bounds.neLng}`
-      : '';
+  listPois: (bounds?: Bounds, opts?: { lastComment?: boolean }) => {
+    const params: string[] = [];
+    if (bounds) {
+      params.push(`swLat=${bounds.swLat}&swLng=${bounds.swLng}&neLat=${bounds.neLat}&neLng=${bounds.neLng}`);
+    }
+    if (opts?.lastComment) params.push('lastComment=1');
+    const qs = params.length ? `?${params.join('&')}` : '';
     return request<{ pois: PoISummary[] }>(`/pois${qs}`);
   },
   getPoi: (id: string) => request<{ poi: PoI }>(`/pois/${id}`),

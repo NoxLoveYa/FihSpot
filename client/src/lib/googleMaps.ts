@@ -24,3 +24,16 @@ export function loadGoogleMaps(): Promise<typeof google> {
   }
   return loadingPromise;
 }
+
+export function staticMapUrl(lat: number, lng: number, size = '600x300'): string | null {
+  if (!API_KEY) return null;
+  const params = new URLSearchParams({
+    center: `${lat},${lng}`,
+    zoom: '15',
+    size,
+    scale: '2',
+    markers: `color:0x4f46e5|${lat},${lng}`,
+    key: API_KEY,
+  });
+  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}

@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -17,13 +17,14 @@ interface PoiDrawerProps {
   poiId: string | null;
   onClose: () => void;
   onPoiChanged?: () => void;
+  onViewOnMap?: () => void;
 }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
+export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDrawerProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -184,15 +185,26 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged }: PoiDrawerProps) {
                 <div className="flex-1 space-y-6 overflow-y-auto p-4 safe-bottom">
                   {poi.description && <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{poi.description}</p>}
 
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
-                  >
-                    <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
-                    {t('poi.openInMaps')}
-                  </a>
+                  <div className="flex gap-2">
+                    {onViewOnMap && (
+                      <button
+                        onClick={onViewOnMap}
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                      >
+                        <FontAwesomeIcon icon={faMapPin} className="h-4 w-4" />
+                        {t('poi.viewOnMap')}
+                      </button>
+                    )}
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+                    >
+                      <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
+                      {t('poi.openInMaps')}
+                    </a>
+                  </div>
 
                   <section>
                     <div className="mb-3 flex items-center justify-between">

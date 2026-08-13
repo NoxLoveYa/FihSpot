@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OfflineBanner } from './components/OfflineBanner';
 import { MapPage } from './pages/MapPage';
+import { PoisPage } from './pages/PoisPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -55,6 +56,16 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <PageTransition>
                 <ProfilePage />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pois"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <PoisPage />
               </PageTransition>
             </ProtectedRoute>
           }

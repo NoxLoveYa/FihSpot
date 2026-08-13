@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCompass } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -19,13 +21,22 @@ export function Navbar({ mapType, onMapTypeChange }: NavbarProps) {
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-[1200] flex items-center justify-between p-3">
-      <button
-        onClick={() => navigate('/')}
-        className="pointer-events-auto flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2 text-base font-bold text-slate-800 shadow-soft backdrop-blur-md dark:bg-slate-800/80 dark:text-slate-100"
-      >
-        <Logo className="h-5 w-5 text-brand-600" />
-        FihSpot
-      </button>
+      <div className="pointer-events-auto flex items-center gap-2">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2 text-base font-bold text-slate-800 shadow-soft backdrop-blur-md dark:bg-slate-800/80 dark:text-slate-100"
+        >
+          <Logo className="h-5 w-5 text-brand-600" />
+          FihSpot
+        </button>
+        <button
+          onClick={() => navigate('/pois')}
+          className="flex items-center gap-1.5 rounded-xl bg-white/80 px-3 py-2 text-sm font-semibold text-slate-600 shadow-soft backdrop-blur-md transition-colors hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          <FontAwesomeIcon icon={faCompass} className="h-4 w-4 text-brand-500" />
+          <span className="hidden sm:inline">{t('nav.explore')}</span>
+        </button>
+      </div>
 
       <div className="pointer-events-auto flex items-center gap-2">
         <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />

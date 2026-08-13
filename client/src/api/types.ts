@@ -16,6 +16,7 @@ export interface PoISummary {
   createdBy: Pick<User, 'id' | 'name' | 'avatarUrl'>;
   _count: { comments: number; photos: number };
   createdAt: string;
+  comments?: Comment[];
 }
 
 export interface Comment {

@@ -30,7 +30,7 @@ function validateCoords(lat: unknown, lng: unknown) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const { swLat, swLng, neLat, neLng } = req.query as Record<string, string | undefined>;
+    const { swLat, swLng, neLat, neLng, lastComment } = req.query as Record<string, string | undefined>;
 
     const pois = await prisma.poI.findMany({
       where: {
@@ -45,6 +45,15 @@ router.get('/', async (req, res, next) => {
       include: {
         createdBy: { select: { id: true, name: true, avatarUrl: true } },
         _count: { select: { comments: true, photos: true } },
+        ...(lastComment === '1'
+          ? {
+              comments: {
+                take: 1,
+                orderBy: { createdAt: 'desc' as const },
+                include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+              },
+            }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

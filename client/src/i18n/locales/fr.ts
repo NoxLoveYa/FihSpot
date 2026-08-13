@@ -33,6 +33,7 @@ export const fr = {
   'nav.profile': 'Mon profil',
   'nav.logout': 'Déconnexion',
   'nav.login': 'Se connecter',
+  'nav.explore': 'Explorer',
 
   'map.loading': 'Chargement des points…',
   'map.loadError': 'Impossible de charger les points',
@@ -56,6 +57,7 @@ export const fr = {
   'poi.close': 'Fermer',
   'poi.addedBy': 'Ajouté par {{name}} · {{date}}',
   'poi.openInMaps': 'Ouvrir dans Google Maps',
+  'poi.viewOnMap': 'Voir sur la carte',
   'poi.photos': 'Photos ({{count}})',
   'poi.addPhoto': '+ Ajouter',
   'poi.noPhotos': 'Aucune photo pour l\'instant',
@@ -75,6 +77,17 @@ export const fr = {
   'search.placeholder': 'Rechercher une ville, un lieu…',
   'search.clear': 'Effacer',
   'search.error': 'Erreur de recherche',
+
+  'pois.title': 'Points d\'intérêt',
+  'pois.back': 'Retour',
+  'pois.searchPlaceholder': 'Rechercher un point, un lieu…',
+  'pois.noResults': 'Aucun point ne correspond à votre recherche.',
+  'pois.loadError': 'Impossible de charger les points.',
+  'pois.noDescription': 'Pas encore de description.',
+  'pois.all': 'Tous',
+  'pois.sort': 'Trier',
+  'pois.sort.newest': 'Plus récents',
+  'pois.sort.commented': 'Plus commentés',
 
   'profile.back': 'Retour',
   'profile.title': 'Mon profil',
