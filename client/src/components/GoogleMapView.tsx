@@ -39,20 +39,76 @@ function categoryIcon(category: string | null): IconDefinition {
   return faLocationDot;
 }
 
-function categoryIconHtml(category: string | null): string {
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function makePinIcon(category: string | null): google.maps.Icon {
   const rendered = faIcon(categoryIcon(category));
-  return rendered ? rendered.html[0] : '';
+  const w = rendered.icon[0];
+  const h = rendered.icon[1];
+  const path = (rendered.icon[4] as string) ?? '';
+  const color = categoryColor(category);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24">
+  <path d="M12 0C6.48 0 2 4.48 2 10c0 6 10 14 10 14s10-8 10-14C22 4.48 17.52 0 12 0z" fill="${color}" stroke="#ffffff" stroke-width="1.6"/>
+  <svg x="6.5" y="3" width="11" height="11" viewBox="0 0 ${w} ${h}">
+    <path d="${path}" fill="#ffffff"/>
+  </svg>
+</svg>`;
+  return {
+    url: svgDataUri(svg),
+    size: new google.maps.Size(36, 36),
+    scaledSize: new google.maps.Size(36, 36),
+    anchor: new google.maps.Point(18, 36),
+  };
 }
 
-function pinHtml(category: string | null): string {
-  return `<div class="marker-pin" style="background:${categoryColor(category)}">${categoryIconHtml(category)}</div>`;
+function makeSelectedRingIcon(): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="12" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="3">
+    <animate attributeName="r" values="9;23" dur="1.6s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;0" dur="1.6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="24" cy="24" r="12" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="3"/>
+</svg>`;
+  return {
+    url: svgDataUri(svg),
+    size: new google.maps.Size(48, 48),
+    scaledSize: new google.maps.Size(48, 48),
+    anchor: new google.maps.Point(24, 24),
+  };
 }
 
-function makeContent(innerHtml: string, anchorClass?: string, interactive = false): HTMLElement {
-  const outer = document.createElement('div');
-  outer.className = `gm-marker-content${interactive ? ' gm-interactive' : ''}`;
-  outer.innerHTML = anchorClass ? `<div class="${anchorClass}">${innerHtml}</div>` : innerHtml;
-  return outer;
+function makeUserLocationIcon(): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <circle cx="16" cy="16" r="11" fill="rgba(59,130,246,0.55)">
+    <animate attributeName="r" values="8;15" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.9;0" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="16" cy="16" r="7" fill="#3b82f6" stroke="#ffffff" stroke-width="2.5"/>
+</svg>`;
+  return {
+    url: svgDataUri(svg),
+    size: new google.maps.Size(32, 32),
+    scaledSize: new google.maps.Size(32, 32),
+    anchor: new google.maps.Point(16, 16),
+  };
+}
+
+function makeSearchIcon(): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <circle cx="16" cy="16" r="11" fill="rgba(13,148,136,0.5)">
+    <animate attributeName="r" values="8;15" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.9;0" dur="1.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="16" cy="16" r="8" fill="#0d9488" stroke="#ffffff" stroke-width="3"/>
+</svg>`;
+  return {
+    url: svgDataUri(svg),
+    size: new google.maps.Size(32, 32),
+    scaledSize: new google.maps.Size(32, 32),
+    anchor: new google.maps.Point(16, 16),
+  };
 }
 
 interface GoogleMapViewProps {
@@ -170,31 +226,25 @@ export function GoogleMapView({
 
   useEffect(() => {
     if (!map) return;
-    const { AdvancedMarkerElement } = window.google.maps.marker;
-    if (!AdvancedMarkerElement) return;
 
-    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
-
-    const decorative = (opts: google.maps.marker.AdvancedMarkerElementOptions & { interactive: boolean }) =>
-      new AdvancedMarkerElement(opts as google.maps.marker.AdvancedMarkerElementOptions);
+    const markers: google.maps.Marker[] = [];
 
     if (draftPosition) {
       markers.push(
-        decorative({
+        new google.maps.Marker({
           map,
           position: draftPosition,
-          content: makeContent(pinHtml(null), 'gm-anchor-pin'),
+          icon: makePinIcon(null),
           zIndex: 200,
-          interactive: false,
         }),
       );
     }
 
     pois.forEach((poi) => {
-      const marker = new AdvancedMarkerElement({
+      const marker = new google.maps.Marker({
         map,
         position: { lat: poi.lat, lng: poi.lng },
-        content: makeContent(pinHtml(poi.category), 'gm-anchor-pin', true),
+        icon: makePinIcon(poi.category),
         zIndex: 500,
         title: poi.name,
       });
@@ -205,43 +255,40 @@ export function GoogleMapView({
     const selected = selectedId ? pois.find((p) => p.id === selectedId) : null;
     if (selected) {
       markers.push(
-        decorative({
+        new google.maps.Marker({
           map,
           position: { lat: selected.lat, lng: selected.lng },
-          content: makeContent('<div class="marker-selected-ring"></div>'),
+          icon: makeSelectedRingIcon(),
           zIndex: 600,
-          interactive: false,
         }),
       );
     }
 
     if (userPosition) {
       markers.push(
-        decorative({
+        new google.maps.Marker({
           map,
           position: userPosition,
-          content: makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
+          icon: makeUserLocationIcon(),
           zIndex: 1000,
-          interactive: false,
         }),
       );
     }
 
     if (searchPosition) {
       markers.push(
-        decorative({
+        new google.maps.Marker({
           map,
           position: searchPosition,
-          content: makeContent('<div class="marker-search-dot"><div class="marker-search-pulse"></div></div>'),
+          icon: makeSearchIcon(),
           zIndex: 800,
-          interactive: false,
         }),
       );
     }
 
     return () => {
       markers.forEach((m) => {
-        m.map = null;
+        m.setMap(null);
       });
     };
   }, [map, pois, selectedId, draftPosition, userPosition, searchPosition]);
