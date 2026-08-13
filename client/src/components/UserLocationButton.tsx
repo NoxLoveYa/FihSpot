@@ -53,7 +53,7 @@ export function UserLocationButton({ map, onLocate, locating, onLocatingChange }
       onClick={handleClick}
       aria-label={t('locate.me')}
       title={t('locate.me')}
-      className="glass fixed bottom-24 right-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95"
+      className="glass fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95"
     >
       {locating ? <Spinner className="h-5 w-5 border-slate-300 border-t-slate-600" /> : <FontAwesomeIcon icon={faLocationCrosshairs} />}
     </button>

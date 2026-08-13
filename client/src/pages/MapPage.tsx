@@ -9,7 +9,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSearchSession } from '../context/SearchSessionContext';
-import { scanForWater, haversineKm, DEFAULT_RADIUS_KM, RADIUS_OPTIONS_KM } from '../lib/waterScan';
+import { scanForWater, haversineKm } from '../lib/waterScan';
 import type { ScanSensitivity } from '../lib/waterScan';
 import { SCAN_SENSITIVITIES } from '../lib/waterScan';
 import { GoogleMapView } from '../components/GoogleMapView';
@@ -84,18 +84,10 @@ export function MapPage() {
     const saved = localStorage.getItem('fihspot_scan_sensitivity') as ScanSensitivity | null;
     return saved && SCAN_SENSITIVITIES.includes(saved) ? saved : 'default';
   });
-  const [scanRadiusKm, setScanRadiusKm] = useState<number>(() => {
-    const saved = Number(localStorage.getItem('fihspot_scan_radius'));
-    return RADIUS_OPTIONS_KM.includes(saved) ? saved : DEFAULT_RADIUS_KM;
-  });
 
   useEffect(() => {
     localStorage.setItem('fihspot_scan_sensitivity', sensitivity);
   }, [sensitivity]);
-
-  useEffect(() => {
-    localStorage.setItem('fihspot_scan_radius', String(scanRadiusKm));
-  }, [scanRadiusKm]);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -218,7 +210,6 @@ export function MapPage() {
       setScanCached(0);
       try {
         const { candidates: found, previewUrl, width, height, cachedCount } = await scanForWater(area, sensitivity, {
-          radiusKm: scanRadiusKm,
           onProgress: (done, total) => setScanProgress({ done, total }),
         });
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
@@ -236,16 +227,16 @@ export function MapPage() {
         setScanProgress(null);
       }
     },
-    [sensitivity, scanRadiusKm, searchPois, setPreview, toast, t],
+    [sensitivity, searchPois, setPreview, toast, t],
   );
 
   useEffect(() => {
     if (!searchArea) return;
-    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${scanRadiusKm},${sensitivity}`;
+    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${sensitivity}`;
     if (lastScanRef.current === key) return;
     lastScanRef.current = key;
     runScan(searchArea);
-  }, [searchArea, scanRadiusKm, sensitivity, runScan]);
+  }, [searchArea, sensitivity, runScan]);
 
   const handlePick = useCallback(
     (latlng: LatLng) => {
@@ -456,7 +447,7 @@ export function MapPage() {
       )}
 
       {canSearch && searchMode && !searchArea && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-28 z-[1150] flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-[1150] flex justify-center">
           <div className="glass flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-200">
             <FontAwesomeIcon icon={faBullseye} className="h-4 w-4 text-brand-500" />
             {t('search.tapMap')}
@@ -496,10 +487,8 @@ export function MapPage() {
           previewUrl={previewUrl}
           previewSize={previewSize}
           sensitivity={sensitivity}
-          radius={scanRadiusKm}
           zoom={mapRef.current?.getZoom() ?? 14}
           onSensitivityChange={setSensitivity}
-          onRadiusChange={setScanRadiusKm}
           onScan={runScan}
           onAddCandidate={handleAddCandidate}
           onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
@@ -532,7 +521,7 @@ export function MapPage() {
           onClick={() => setMinimized(false)}
           aria-label={t('search.restore')}
           title={t('search.restore')}
-          className="glass-strong fixed bottom-6 left-1/2 z-[1350] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 md:bottom-auto md:left-auto md:right-6 md:top-24 md:translate-x-0 dark:text-slate-100"
+          className="glass-strong fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[1350] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 md:bottom-auto md:left-auto md:right-6 md:top-24 md:translate-x-0 dark:text-slate-100"
         >
           <FontAwesomeIcon icon={faFish} className="h-4 w-4 text-brand-500" />
           {t('search.title')}
@@ -551,7 +540,7 @@ export function MapPage() {
               onClick={() => setSavedOpen((v) => !v)}
               aria-label={t('saved.title')}
               title={t('saved.title')}
-              className={`fixed bottom-24 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
+              className={`fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
                 savedOpen ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
               }`}
             >
@@ -566,7 +555,7 @@ export function MapPage() {
               }}
               aria-label={t('search.toggle')}
               title={t('search.toggle')}
-              className={`fixed bottom-40 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
+              className={`fixed bottom-[calc(10rem+env(safe-area-inset-bottom))] left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
                 searchMode ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
               }`}
             >

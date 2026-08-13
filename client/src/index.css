@@ -9,8 +9,27 @@
     height: 100%;
   }
 
+  /* Mobile full-screen: fill the dynamic viewport so the map stays behind the
+     browser chrome (Dynamic Island / status bar / URL bar) and never jumps. */
+  @supports (height: 100dvh) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+    }
+  }
+
+  html {
+    /* Block double-tap page zoom and the 300ms tap delay while letting
+       dedicated gestures (Google Maps pan/pinch) work on their own layers. */
+    touch-action: manipulation;
+  }
+
   body {
     @apply bg-surface text-slate-800 antialiased;
+    /* Prevent pull-to-refresh / rubber-banding from fighting map dragging. */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .dark body {

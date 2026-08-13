@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useRef } from 'react';
+import { lazy, Suspense, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -10,13 +10,18 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { OfflineBanner } from './components/OfflineBanner';
 import { MapPage } from './pages/MapPage';
-import { PoisPage } from './pages/PoisPage';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { UserPage } from './pages/UserPage';
-import { AdminPage } from './pages/AdminPage';
+import { FullScreenLoader } from './components/Spinner';
 import { setPreviousPath } from './navigation';
+
+// Non-map pages are lazy-loaded so the startup bundle stays lean: visiting the
+// login/register/profiles pages doesn't pull in Google Maps, the scan pipeline
+// or framer-motion-heavy admin screens.
+const PoisPage = lazy(() => import('./pages/PoisPage').then((m) => ({ default: m.PoisPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const UserPage = lazy(() => import('./pages/UserPage').then((m) => ({ default: m.UserPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
 
 function PageTransition({ children }: { children: ReactNode }) {
   return (
@@ -59,7 +64,9 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <PageTransition>
-                <ProfilePage />
+                <Suspense fallback={<FullScreenLoader />}>
+                  <ProfilePage />
+                </Suspense>
               </PageTransition>
             </ProtectedRoute>
           }
@@ -69,7 +76,9 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <PageTransition>
-                <UserPage />
+                <Suspense fallback={<FullScreenLoader />}>
+                  <UserPage />
+                </Suspense>
               </PageTransition>
             </ProtectedRoute>
           }
@@ -79,7 +88,9 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <PageTransition>
-                <PoisPage />
+                <Suspense fallback={<FullScreenLoader />}>
+                  <PoisPage />
+                </Suspense>
               </PageTransition>
             </ProtectedRoute>
           }
@@ -89,7 +100,9 @@ function AnimatedRoutes() {
           element={
             <AdminRoute>
               <PageTransition>
-                <AdminPage />
+                <Suspense fallback={<FullScreenLoader />}>
+                  <AdminPage />
+                </Suspense>
               </PageTransition>
             </AdminRoute>
           }
@@ -98,7 +111,9 @@ function AnimatedRoutes() {
           path="/login"
           element={
             <PageTransition>
-              <LoginPage />
+              <Suspense fallback={<FullScreenLoader />}>
+                <LoginPage />
+              </Suspense>
             </PageTransition>
           }
         />
@@ -106,7 +121,9 @@ function AnimatedRoutes() {
           path="/register"
           element={
             <PageTransition>
-              <RegisterPage />
+              <Suspense fallback={<FullScreenLoader />}>
+                <RegisterPage />
+              </Suspense>
             </PageTransition>
           }
         />
