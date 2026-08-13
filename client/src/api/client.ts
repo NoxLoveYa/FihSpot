@@ -114,6 +114,7 @@ export const api = {
 
   // Profile
   meContent: () => request<UserContent>('/me'),
+  user: (id: string) => request<UserContent>(`/users/${id}`),
   uploadAvatar: (file: File) => {
     const form = new FormData();
     form.append('avatar', file);

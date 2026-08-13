@@ -44,7 +44,8 @@ export const fr = {
   'addPoi.error': 'Erreur de création',
 
   'poi.close': 'Fermer',
-  'poi.addedBy': 'Ajouté par {{name}} · {{date}}',
+  'poi.addedByPrefix': 'Ajouté par',
+  'poi.viewUser': 'Voir {{name}}',
   'poi.openInMaps': 'Ouvrir dans Google Maps',
   'poi.viewOnMap': 'Voir sur la carte',
   'poi.photos': 'Photos ({{count}})',

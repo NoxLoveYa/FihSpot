@@ -12,6 +12,7 @@ import { PoisPage } from './pages/PoisPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { UserPage } from './pages/UserPage';
 import { setPreviousPath } from './navigation';
 
 function PageTransition({ children }: { children: ReactNode }) {
@@ -56,6 +57,16 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <PageTransition>
                 <ProfilePage />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/:id"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <UserPage />
               </PageTransition>
             </ProtectedRoute>
           }

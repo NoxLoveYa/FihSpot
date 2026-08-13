@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -28,6 +29,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [poi, setPoi] = useState<PoI | null>(null);
   const [loading, setLoading] = useState(false);
@@ -166,7 +168,15 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                   <div className="min-w-0">
                     <h2 className="truncate text-lg font-bold text-slate-800 dark:text-slate-100">{poi.name}</h2>
                     <p className="text-xs text-slate-400">
-                      {t('poi.addedBy', { name: poi.createdBy.name, date: formatDate(poi.createdAt) })}
+                      {t('poi.addedByPrefix')}{' '}
+                      <button
+                        onClick={() => navigate(`/user/${poi.createdBy.id}`)}
+                        className="font-semibold text-brand-600 hover:underline dark:text-brand-300"
+                      >
+                        {poi.createdBy.name}
+                      </button>
+                      {' · '}
+                      {formatDate(poi.createdAt)}
                     </p>
                   </div>
                   <button
@@ -272,16 +282,27 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                     <ul className="space-y-3">
                       {poi.comments.map((c) => (
                         <li key={c.id} className="flex items-start gap-3">
-                          {c.user.avatarUrl ? (
-                            <img src={c.user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-                          ) : (
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/60">
-                              {c.user.name.charAt(0).toUpperCase()}
-                            </span>
-                          )}
+                          <button
+                            onClick={() => navigate(`/user/${c.user.id}`)}
+                            aria-label={t('poi.viewUser', { name: c.user.name })}
+                            className="shrink-0"
+                          >
+                            {c.user.avatarUrl ? (
+                              <img src={c.user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                            ) : (
+                              <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/60">
+                                {c.user.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </button>
                           <div className="flex-1 rounded-2xl rounded-tl-sm bg-slate-100 px-3 py-2 dark:bg-slate-700/50">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{c.user.name}</span>
+                              <button
+                                onClick={() => navigate(`/user/${c.user.id}`)}
+                                className="text-xs font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-200"
+                              >
+                                {c.user.name}
+                              </button>
                               {user?.id === c.user.id && (
                                 <button
                                   onClick={() => deleteComment(c.id)}

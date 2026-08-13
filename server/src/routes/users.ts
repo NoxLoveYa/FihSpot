@@ -43,6 +43,42 @@ router.get('/me', requireAuth, async (req, res, next) => {
   }
 });
 
+router.get('/users/:id', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+
+    const [pois, comments, photos] = await Promise.all([
+      prisma.poI.findMany({
+        where: { createdById: user.id, ...(config.demoEnabled ? {} : { demo: false }) },
+        include: { _count: { select: { comments: true, photos: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.comment.findMany({
+        where: { userId: user.id },
+        include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.photo.findMany({
+        where: { userId: user.id },
+        include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const { email, ...safeUser } = publicUser(user);
+    res.json({
+      user: safeUser,
+      stats: { pois: pois.length, comments: comments.length, photos: photos.length },
+      pois,
+      comments,
+      photos,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req, res, next) => {
   try {
     if (!req.file) throw new ApiError(400, 'File missing', 'FILE_MISSING');

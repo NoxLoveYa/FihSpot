@@ -44,7 +44,8 @@ export const en = {
   'addPoi.error': 'Could not create the point',
 
   'poi.close': 'Close',
-  'poi.addedBy': 'Added by {{name}} · {{date}}',
+  'poi.addedByPrefix': 'Added by',
+  'poi.viewUser': 'View {{name}}',
   'poi.openInMaps': 'Open in Google Maps',
   'poi.viewOnMap': 'See on map',
   'poi.photos': 'Photos ({{count}})',

@@ -127,7 +127,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="mt-2 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-soft backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95"
+            className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-soft backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95"
           >
             {results.map((r, i) => (
               <li key={`${r.lat}-${r.lon}-${i}`}>

@@ -33,6 +33,7 @@ function formatDate(iso: string): string {
 
 function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () => void; onViewOnMap: () => void }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const lastComment = poi.comments?.[0];
   const [imgError, setImgError] = useState(false);
   const mapUrl = staticMapUrl(poi.lat, poi.lng, '600x300');
@@ -91,14 +92,29 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
         {lastComment && (
           <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
             <p className="line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-              <span className="font-semibold">{lastComment.user.name} : </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/user/${lastComment.user.id}`);
+                }}
+                className="inline font-semibold hover:text-brand-600"
+              >
+                {lastComment.user.name}
+              </button>
+              {' : '}
               {lastComment.content}
             </p>
           </div>
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <div className="flex min-w-0 items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/user/${poi.createdBy.id}`);
+            }}
+            className="flex min-w-0 items-center gap-2"
+          >
             {poi.createdBy.avatarUrl ? (
               <img src={poi.createdBy.avatarUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
             ) : (
@@ -106,8 +122,8 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
                 {poi.createdBy.name.charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="truncate text-xs text-slate-400">{poi.createdBy.name}</span>
-          </div>
+            <span className="truncate text-xs text-slate-400 hover:text-brand-600">{poi.createdBy.name}</span>
+          </button>
           <div className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
             <span className="flex items-center gap-1">
               <FontAwesomeIcon icon={faComment} className="h-3 w-3" />
