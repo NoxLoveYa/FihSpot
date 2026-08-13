@@ -4,8 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageToggle } from './LanguageToggle';
+import { MapTypeToggle } from './MapTypeToggle';
+import type { MapType } from './MapTypeToggle';
 
-export function Navbar() {
+interface NavbarProps {
+  mapType?: MapType;
+  onMapTypeChange?: (type: MapType) => void;
+}
+
+export function Navbar({ mapType, onMapTypeChange }: NavbarProps) {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +29,9 @@ export function Navbar() {
 
       <div className="pointer-events-auto flex items-center gap-2">
         <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
+        {mapType && onMapTypeChange && (
+          <MapTypeToggle mapType={mapType} onChange={onMapTypeChange} />
+        )}
         <LanguageToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
         {user ? (
           <>

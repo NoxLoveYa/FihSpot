@@ -12,6 +12,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
 import { useTheme } from '../context/ThemeContext';
+import type { MapType } from './MapTypeToggle';
 import type { Bounds, PoISummary } from '../api/types';
 
 const categoryColors: Record<string, string> = {
@@ -60,6 +61,7 @@ interface GoogleMapViewProps {
   pois: PoISummary[];
   selectedId: string | null;
   adding: boolean;
+  mapType: MapType;
   draftPosition: LatLng | null;
   userPosition: LatLng | null;
   searchPosition: LatLng | null;
@@ -73,6 +75,7 @@ export function GoogleMapView({
   pois,
   selectedId,
   adding,
+  mapType,
   draftPosition,
   userPosition,
   searchPosition,
@@ -86,6 +89,11 @@ export function GoogleMapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const viewRef = useRef<{ center: LatLng; zoom: number } | null>(null);
+  const mapTypeRef = useRef(mapType);
+
+  useEffect(() => {
+    mapTypeRef.current = mapType;
+  }, [mapType]);
 
   const onMapReadyRef = useRef(onMapReady);
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -117,19 +125,22 @@ export function GoogleMapView({
         if (disposed || !containerRef.current) return;
         const center = viewRef.current?.center ?? { lat: 48.8566, lng: 2.3522 };
         const zoom = viewRef.current?.zoom ?? 13;
+        const containerWidth = containerRef.current.clientWidth || window.innerWidth;
+        const minZoom = Math.max(1, Math.ceil(Math.log2(containerWidth / 256)));
         instance = new google.maps.Map(containerRef.current, {
           center,
           zoom,
+          minZoom,
           mapId: MAP_ID,
           colorScheme: theme === 'dark' ? 'DARK' : 'LIGHT',
-          mapTypeControl: true,
-          mapTypeControlOptions: {
-            position: google.maps.ControlPosition.TOP_RIGHT,
-          },
+          mapTypeControl: false,
           zoomControl: false,
           streetViewControl: false,
           fullscreenControl: false,
-          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          mapTypeId:
+            mapTypeRef.current === 'satellite'
+              ? google.maps.MapTypeId.SATELLITE
+              : google.maps.MapTypeId.ROADMAP,
           tilt: 0,
           gestureHandling: 'auto',
         });
@@ -185,6 +196,13 @@ export function GoogleMapView({
       }
     };
   }, [theme]);
+
+  useEffect(() => {
+    if (!map) return;
+    map.setMapTypeId(
+      mapType === 'satellite' ? window.google.maps.MapTypeId.SATELLITE : window.google.maps.MapTypeId.ROADMAP,
+    );
+  }, [map, mapType]);
 
   useEffect(() => {
     if (!map) return;

@@ -10,6 +10,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { GoogleMapView } from '../components/GoogleMapView';
+import type { MapType } from '../components/MapTypeToggle';
 import { PoiDrawer } from '../components/PoiDrawer';
 import { AddPoiPanel } from '../components/AddPoiPanel';
 import { SearchBar } from '../components/SearchBar';
@@ -33,6 +34,7 @@ export function MapPage() {
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [mapType, setMapType] = useState<MapType>('roadmap');
   const autoLocatedRef = useRef(false);
   const [shouldAutoLocate] = useState(() => {
     const prev = getPreviousPath();
@@ -141,11 +143,12 @@ export function MapPage() {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <Navbar />
+      <Navbar mapType={mapType} onMapTypeChange={setMapType} />
       <GoogleMapView
         pois={pois}
         selectedId={selectedId}
         adding={adding}
+        mapType={mapType}
         draftPosition={adding ? draftPosition : null}
         userPosition={userPosition}
         searchPosition={searchPosition}

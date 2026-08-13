@@ -39,6 +39,9 @@ export const en = {
   'map.addPoi': 'Add a point',
   'map.cancelAdd': 'Cancel adding',
   'map.clickToPlace': 'Click the map to place the point',
+  'map.mapType.label': 'Map type',
+  'map.mapType.map': 'Map',
+  'map.mapType.satellite': 'Satellite',
 
   'addPoi.title': 'New point',
   'addPoi.namePlaceholder': 'e.g. Harbor Café',

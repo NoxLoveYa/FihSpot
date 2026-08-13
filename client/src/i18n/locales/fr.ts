@@ -39,6 +39,9 @@ export const fr = {
   'map.addPoi': 'Ajouter un point',
   'map.cancelAdd': 'Annuler l\'ajout',
   'map.clickToPlace': 'Cliquez sur la carte pour placer le point',
+  'map.mapType.label': 'Type de carte',
+  'map.mapType.map': 'Carte',
+  'map.mapType.satellite': 'Satellite',
 
   'addPoi.title': 'Nouveau point',
   'addPoi.namePlaceholder': 'Ex : Café du port',
