@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LatLng, Map } from 'leaflet';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { latLng } from 'leaflet';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import type { LatLng } from '../lib/googleMaps';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { MapView } from '../components/MapView';
+import { GoogleMapView } from '../components/GoogleMapView';
 import { PoiDrawer } from '../components/PoiDrawer';
 import { AddPoiPanel } from '../components/AddPoiPanel';
 import { SearchBar } from '../components/SearchBar';
@@ -24,7 +23,7 @@ export function MapPage() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const mapRef = useRef<Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -89,8 +88,9 @@ export function MapPage() {
     setSelectedId(null);
     setAdding(false);
     setDraftPosition(null);
-    setSearchPosition(latLng(lat, lng));
-    mapRef.current?.flyTo([lat, lng], 12, { duration: 0.8 });
+    setSearchPosition({ lat, lng });
+    mapRef.current?.panTo({ lat, lng });
+    mapRef.current?.setZoom(12);
   }, []);
 
   const handleLocate = useCallback((position: LatLng) => {
@@ -98,25 +98,38 @@ export function MapPage() {
   }, []);
 
   const handleMapReady = useCallback(
-    (map: Map) => {
+    (map: google.maps.Map) => {
       mapRef.current = map;
       if (pendingFocus) {
         api
           .getPoi(pendingFocus)
-          .then(({ poi }) => map.flyTo([poi.lat, poi.lng], 15, { duration: 0.6 }))
+          .then(({ poi }) => {
+            map.panTo({ lat: poi.lat, lng: poi.lng });
+            map.setZoom(15);
+          })
           .catch(() => {});
         setPendingFocus(null);
       } else if (shouldAutoLocate) {
         setLocating(true);
-        map.locate({ setView: true, maxZoom: 16 });
-        map.once('locationfound', (e) => {
-          setLocating(false);
-          setUserPosition(e.latlng);
-        });
-        map.once('locationerror', () => {
+        if (!navigator.geolocation) {
           setLocating(false);
           toast(t('locate.error'), 'error');
-        });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setLocating(false);
+            setUserPosition(position);
+            map.panTo(position);
+            map.setZoom(16);
+          },
+          () => {
+            setLocating(false);
+            toast(t('locate.error'), 'error');
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        );
       }
     },
     [pendingFocus, shouldAutoLocate, toast, t],
@@ -127,7 +140,7 @@ export function MapPage() {
   return (
     <div className="relative h-full w-full overflow-hidden">
       <Navbar />
-      <MapView
+      <GoogleMapView
         pois={pois}
         selectedId={selectedId}
         adding={adding}

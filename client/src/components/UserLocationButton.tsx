@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import type { LatLng, Map } from 'leaflet';
+import type { LatLng } from '../lib/googleMaps';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLocationCrosshairs } from '@fortawesome/free-solid-svg-icons';
@@ -7,7 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { Spinner } from './Spinner';
 
 interface UserLocationButtonProps {
-  map: Map | null;
+  map: google.maps.Map | null;
   onLocate: (position: LatLng) => void;
   locating: boolean;
   onLocatingChange: (locating: boolean) => void;
@@ -19,21 +19,33 @@ export function UserLocationButton({ map, onLocate, locating, onLocatingChange }
   const { toast } = useToast();
 
   const handleClick = useCallback(() => {
-    if (!map || locatingRef.current) return;
+    if (locatingRef.current) return;
     locatingRef.current = true;
     onLocatingChange(true);
 
-    map.locate({ setView: true, maxZoom: 16 });
-    map.once('locationfound', (e) => {
-      locatingRef.current = false;
-      onLocatingChange(false);
-      onLocate(e.latlng);
-    });
-    map.once('locationerror', () => {
+    if (!navigator.geolocation) {
       locatingRef.current = false;
       onLocatingChange(false);
       toast(t('locate.error'), 'error');
-    });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const position: LatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        locatingRef.current = false;
+        onLocatingChange(false);
+        map?.panTo(position);
+        map?.setZoom(16);
+        onLocate(position);
+      },
+      () => {
+        locatingRef.current = false;
+        onLocatingChange(false);
+        toast(t('locate.error'), 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
   }, [map, onLocate, toast, t, onLocatingChange]);
 
   return (

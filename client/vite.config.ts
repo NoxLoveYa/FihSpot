@@ -57,15 +57,6 @@ export default defineConfig({
               cacheableResponse: { statuses: [200] },
             },
           },
-          {
-            urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'fihspot-osm-tiles',
-              expiration: { maxEntries: 1000, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
         ],
       },
     }),

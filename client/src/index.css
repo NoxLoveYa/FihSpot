@@ -24,20 +24,17 @@
   }
 }
 
-.leaflet-container {
-  width: 100%;
-  height: 100%;
-  font-family: inherit;
-  background: #e8ecf1;
+.gm-marker-content {
+  pointer-events: none;
 }
 
-.leaflet-popup-content-wrapper {
-  border-radius: 1rem;
-  box-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.25);
+.gm-marker-content.gm-interactive {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
-.leaflet-marker-icon {
-  transition: transform 0.2s ease;
+.gm-anchor-pin {
+  transform: translateY(-18px);
 }
 
 .marker-pin {

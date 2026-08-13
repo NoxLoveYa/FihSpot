@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { LatLng } from 'leaflet';
+import type { LatLng } from '../lib/googleMaps';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLocationDot, faMapLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons';
