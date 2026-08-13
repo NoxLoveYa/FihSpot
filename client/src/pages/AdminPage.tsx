@@ -802,7 +802,7 @@ export function AdminPage() {
                 {t('admin.mod.photos')}
               </h2>
               {modLoading ? (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <Skeleton key={i} className="aspect-square w-full rounded-2xl" />
                   ))}
@@ -810,7 +810,7 @@ export function AdminPage() {
               ) : modPhotos.length === 0 ? (
                 <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noPhotos')}</p>
               ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {modPhotos.map((p) => (
                     <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl">
                       <button onClick={() => setViewingPhoto(p)} aria-label={t('poi.viewPhoto')} title={t('poi.viewPhoto')} className="block h-full w-full">
@@ -819,31 +819,31 @@ export function AdminPage() {
                       <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">
                         {p.poi.name}
                       </span>
-                      <div className="absolute right-1 top-1 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                         <button
                           onClick={() => setViewingPhoto(p)}
                           aria-label={t('poi.viewPhoto')}
                           title={t('poi.viewPhoto')}
-                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                         >
-                          <FontAwesomeIcon icon={faExpand} className="h-2.5 w-2.5" />
+                          <FontAwesomeIcon icon={faExpand} className="h-3 w-3" />
                         </button>
                         <a
                           href={p.url}
                           download
                           aria-label={t('poi.downloadPhoto')}
                           title={t('poi.downloadPhoto')}
-                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                         >
-                          <FontAwesomeIcon icon={faDownload} className="h-2.5 w-2.5" />
+                          <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />
                         </a>
                         <button
                           onClick={() => deletePhoto(p)}
                           disabled={busyPhoto === p.id}
                           title={t('admin.mod.deletePhoto')}
-                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
+                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
                         >
-                          {busyPhoto === p.id ? <Spinner className="h-2.5 w-2.5" /> : <FontAwesomeIcon icon={faTrash} className="h-2.5 w-2.5" />}
+                          {busyPhoto === p.id ? <Spinner className="h-3 w-3" /> : <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />}
                         </button>
                       </div>
                     </div>
