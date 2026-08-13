@@ -14,7 +14,7 @@ import type { DetectedWater, LatLng } from './waterAnalysis';
 export interface ChunkJob {
   id: number;
   url: string;
-  tileKey: string;
+  cacheKey: string;
   center: LatLng;
   zoom: number;
   size: number;
@@ -35,19 +35,19 @@ const workerScope = self as unknown as {
   onmessage: ((e: MessageEvent<ChunkJob>) => void) | null;
 };
 
-async function resolveImage(url: string): Promise<{ response: Response; cached: boolean }> {
-  const hit = await getCachedImage(url);
+async function resolveImage(url: string, cacheKey: string): Promise<{ response: Response; cached: boolean }> {
+  const hit = await getCachedImage(cacheKey);
   if (hit) return { response: hit.response, cached: true };
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-  await cacheImage(url, res.clone());
+  await cacheImage(cacheKey, res.clone());
   return { response: res, cached: false };
 }
 
 workerScope.onmessage = async (e: MessageEvent<ChunkJob>) => {
   const job = e.data;
   try {
-    const { response, cached } = await resolveImage(job.url);
+    const { response, cached } = await resolveImage(job.url, job.cacheKey);
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
 

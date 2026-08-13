@@ -20,8 +20,8 @@ export { haversineKm };
 export { SCAN_SENSITIVITIES } from './waterAnalysis';
 export type { DetectedWater, ScanSensitivity };
 
-export const RADIUS_OPTIONS_KM: number[] = [1, 5, 10, 30, 50, 100];
-export const DEFAULT_RADIUS_KM = 10;
+export const RADIUS_OPTIONS_KM: number[] = [5, 30, 50];
+export const DEFAULT_RADIUS_KM = 5;
 
 export interface ScanResult {
   candidates: DetectedWater[];
@@ -42,22 +42,34 @@ export interface ScanOptions {
 const CHUNK_SIZE = 640; // static map request size in px
 const SCALE = 2; // static map scale → decoded pixels are CHUNK_SIZE * SCALE
 const EARTH_CIRC_M = 40075016.686;
-const MAX_CHUNKS = 36;
 const OVERLAP = 0.15; // chunks overlap so ponds straddling a border are fully caught
 const MAX_CANDIDATES = 60;
+
+// Per-radius tile budget. A small radius is already precise at a moderate zoom
+// and stays light; large radii cover far more ground and get a big budget so
+// they are scanned at the finest zoom that fits. The first scan of a zone is
+// heavy, but tiles are cached, so every later scan of the same zone is served
+// from cache.
+const RADIUS_CHUNK_BUDGETS: Record<number, number> = {
+  5: 64,
+  30: 144,
+  50: 144,
+};
 
 // Minimum pond diameter (meters) that each sensitivity level should catch, per
 // radius. Kept genuinely small so a scan finds real fishing ponds even at the
 // default sensitivity; they still grow a little with the radius because a
-// 20m puddle is meaningless inside a 100km region.
+// 20m puddle is meaningless inside a large region.
 const RADIUS_POND_SIZES_M: Record<number, Record<ScanSensitivity, number>> = {
-  1: { sensitive: 8, default: 20, strict: 50 },
   5: { sensitive: 15, default: 40, strict: 120 },
-  10: { sensitive: 25, default: 60, strict: 200 },
   30: { sensitive: 50, default: 120, strict: 400 },
   50: { sensitive: 70, default: 180, strict: 600 },
-  100: { sensitive: 100, default: 250, strict: 800 },
 };
+
+// Synthetic cache keys. Tiles are keyed by radius so the images used for one
+// radius are never reused by another (even if two radii share a zoom). These
+// URLs are only cache keys — the network always uses the real static-map URL.
+const CACHE_PREFIX = 'https://fihspot-scan.local';
 
 function metersPerPx(lat: number, zoom: number): number {
   return (EARTH_CIRC_M * Math.cos((lat * Math.PI) / 180)) / (256 * 2 ** zoom);
@@ -116,8 +128,9 @@ function planTiles(center: LatLng, radiusKm: number, chunkZoom: number): TilePla
  * to the live map zoom.
  */
 function chooseChunkZoom(center: LatLng, radiusKm: number): number {
+  const budget = RADIUS_CHUNK_BUDGETS[radiusKm] ?? 64;
   for (let z = 19; z >= 10; z--) {
-    if (planTiles(center, radiusKm, z).length <= MAX_CHUNKS) return z;
+    if (planTiles(center, radiusKm, z).length <= budget) return z;
   }
   return 10;
 }
@@ -158,17 +171,18 @@ function fitPreview(b: { swLat: number; swLng: number; neLat: number; neLng: num
   return { center: { lat, lng }, zoom };
 }
 
-async function fetchPreview(preview: { center: LatLng; zoom: number }) {
+async function fetchPreview(preview: { center: LatLng; zoom: number }, radiusKm: number) {
   const url = staticMapForScan(preview.center, preview.zoom, CHUNK_SIZE);
   if (!url) throw new Error('Map service unavailable');
-  const hit = await getCachedImage(url);
+  const cacheKey = `${CACHE_PREFIX}/preview/${radiusKm}/${preview.center.lat.toFixed(5)}/${preview.center.lng.toFixed(5)}/${preview.zoom}`;
+  const hit = await getCachedImage(cacheKey);
   let blob: Blob;
   if (hit) {
     blob = await hit.response.blob();
   } else {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-    await cacheImage(url, res.clone());
+    await cacheImage(cacheKey, res.clone());
     blob = await res.blob();
   }
   return { previewUrl: URL.createObjectURL(blob), width: CHUNK_SIZE * SCALE, height: CHUNK_SIZE * SCALE };
@@ -241,7 +255,7 @@ async function runChunkJobs(
 
 /** Fallback when Web Workers / OffscreenCanvas are unavailable: sequential on the main thread. */
 async function analyzeChunkOnMain(job: ChunkJob): Promise<{ candidates: DetectedWater[]; cached: boolean }> {
-  const hit = await getCachedImage(job.url);
+  const hit = await getCachedImage(job.cacheKey);
   let response: Response;
   let cached = false;
   if (hit) {
@@ -250,7 +264,7 @@ async function analyzeChunkOnMain(job: ChunkJob): Promise<{ candidates: Detected
   } else {
     const res = await fetch(job.url);
     if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-    await cacheImage(job.url, res.clone());
+    await cacheImage(job.cacheKey, res.clone());
     response = res;
   }
   const blob = await response.blob();
@@ -319,12 +333,14 @@ export async function scanForWater(
 
   const bounds = regionBounds(area, radiusKm);
   const preview = fitPreview(bounds);
-  const previewPromise = fetchPreview(preview);
+  const previewPromise = fetchPreview(preview, radiusKm);
 
   const jobs: ChunkJob[] = tiles.map((tile, id) => {
     const url = staticMapForScan(tile.center, tile.zoom, CHUNK_SIZE);
     if (!url) throw new Error('Map service unavailable');
-    return { id, url, tileKey: tile.key, center: tile.center, zoom: tile.zoom, size: CHUNK_SIZE, minArea, minSide };
+    // The cache key is scoped to the radius so tiles never cross radii.
+    const cacheKey = `${CACHE_PREFIX}/tile/${radiusKm}/${tile.key}`;
+    return { id, url, cacheKey, center: tile.center, zoom: tile.zoom, size: CHUNK_SIZE, minArea, minSide };
   });
 
   let perChunk: DetectedWater[][];

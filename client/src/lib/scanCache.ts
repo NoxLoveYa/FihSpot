@@ -5,7 +5,7 @@
 const CACHE_NAME = 'fihspot-scan-tiles';
 // ~350 KB per tile at 640@2x → 10 000 tiles ≈ 3.5 GB (user budget 5 GB).
 const MAX_ENTRIES = 10000;
-const TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const TS_HEADER = 'x-fihspot-cached-at';
 
 export interface CachedEntry {
@@ -23,16 +23,21 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
-/** Returns the cached response for `url` if it exists and is still fresh. */
-export async function getCachedImage(url: string): Promise<CachedEntry | null> {
+/**
+ * Returns the cached response for `cacheKey` if it exists and is still fresh.
+ * The cache is keyed by an app-defined synthetic URL (see waterScan.ts) so the
+ * same image is never shared between different scan radii. It is origin-scoped
+ * (no user id in the key), so every user of the site reuses the same tiles.
+ */
+export async function getCachedImage(cacheKey: string): Promise<CachedEntry | null> {
   const cache = await openCache();
   if (!cache) return null;
   try {
-    const res = await cache.match(url);
+    const res = await cache.match(cacheKey);
     if (!res) return null;
     const ts = Number(res.headers.get(TS_HEADER) || 0);
     if (Date.now() - ts > TTL_MS) {
-      await cache.delete(url).catch(() => {});
+      await cache.delete(cacheKey).catch(() => {});
       return null;
     }
     return { response: res, cached: true };
@@ -42,10 +47,10 @@ export async function getCachedImage(url: string): Promise<CachedEntry | null> {
 }
 
 /**
- * Stores a response (pass a clone; the original stays usable) with its
- * timestamp, then evicts least-recently-used entries past the budget.
+ * Stores a response (pass a clone; the original stays usable) under `cacheKey`
+ * with its timestamp, then evicts least-recently-used entries past the budget.
  */
-export async function cacheImage(url: string, response: Response): Promise<void> {
+export async function cacheImage(cacheKey: string, response: Response): Promise<void> {
   const cache = await openCache();
   if (!cache) return;
   try {
@@ -56,7 +61,7 @@ export async function cacheImage(url: string, response: Response): Promise<void>
       statusText: response.statusText,
       headers,
     });
-    await cache.put(url, stored);
+    await cache.put(cacheKey, stored);
     await evictLru(cache);
   } catch {
     // Caching is best-effort; a failure must never break a scan.
