@@ -41,6 +41,7 @@ services:
       dockerfile: client/Dockerfile
       args:
         VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
+        VITE_GOOGLE_MAPS_MAP_ID: ${VITE_GOOGLE_MAPS_MAP_ID:-}
     container_name: fihspot-client
     restart: unless-stopped
     depends_on:

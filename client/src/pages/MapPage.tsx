@@ -33,6 +33,7 @@ export function MapPage() {
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const autoLocatedRef = useRef(false);
   const [shouldAutoLocate] = useState(() => {
     const prev = getPreviousPath();
     return prev === null || prev === '/login' || prev === '/register' || prev === '/profile';
@@ -109,7 +110,8 @@ export function MapPage() {
           })
           .catch(() => {});
         setPendingFocus(null);
-      } else if (shouldAutoLocate) {
+      } else if (shouldAutoLocate && !autoLocatedRef.current) {
+        autoLocatedRef.current = true;
         setLocating(true);
         if (!navigator.geolocation) {
           setLocating(false);

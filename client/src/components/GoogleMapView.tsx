@@ -10,7 +10,8 @@ import {
   faBagShopping,
   faLocationDot,
 } from '@fortawesome/free-solid-svg-icons';
-import { loadGoogleMaps, type LatLng } from '../lib/googleMaps';
+import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
+import { useTheme } from '../context/ThemeContext';
 import type { Bounds, PoISummary } from '../api/types';
 
 const categoryColors: Record<string, string> = {
@@ -39,76 +40,20 @@ function categoryIcon(category: string | null): IconDefinition {
   return faLocationDot;
 }
 
-function svgDataUri(svg: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function makePinIcon(category: string | null): google.maps.Icon {
+function categoryIconHtml(category: string | null): string {
   const rendered = faIcon(categoryIcon(category));
-  const w = rendered.icon[0];
-  const h = rendered.icon[1];
-  const path = (rendered.icon[4] as string) ?? '';
-  const color = categoryColor(category);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24">
-  <path d="M12 0C6.48 0 2 4.48 2 10c0 6 10 14 10 14s10-8 10-14C22 4.48 17.52 0 12 0z" fill="${color}" stroke="#ffffff" stroke-width="1.6"/>
-  <svg x="6.5" y="3" width="11" height="11" viewBox="0 0 ${w} ${h}">
-    <path d="${path}" fill="#ffffff"/>
-  </svg>
-</svg>`;
-  return {
-    url: svgDataUri(svg),
-    size: new google.maps.Size(36, 36),
-    scaledSize: new google.maps.Size(36, 36),
-    anchor: new google.maps.Point(18, 36),
-  };
+  return rendered ? rendered.html[0] : '';
 }
 
-function makeSelectedRingIcon(): google.maps.Icon {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <circle cx="24" cy="24" r="12" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="3">
-    <animate attributeName="r" values="9;23" dur="1.6s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="1;0" dur="1.6s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="24" cy="24" r="12" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="3"/>
-</svg>`;
-  return {
-    url: svgDataUri(svg),
-    size: new google.maps.Size(48, 48),
-    scaledSize: new google.maps.Size(48, 48),
-    anchor: new google.maps.Point(24, 24),
-  };
+function pinHtml(category: string | null): string {
+  return `<div class="marker-pin" style="background:${categoryColor(category)}">${categoryIconHtml(category)}</div>`;
 }
 
-function makeUserLocationIcon(): google.maps.Icon {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <circle cx="16" cy="16" r="11" fill="rgba(59,130,246,0.55)">
-    <animate attributeName="r" values="8;15" dur="2s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.9;0" dur="2s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="16" cy="16" r="7" fill="#3b82f6" stroke="#ffffff" stroke-width="2.5"/>
-</svg>`;
-  return {
-    url: svgDataUri(svg),
-    size: new google.maps.Size(32, 32),
-    scaledSize: new google.maps.Size(32, 32),
-    anchor: new google.maps.Point(16, 16),
-  };
-}
-
-function makeSearchIcon(): google.maps.Icon {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <circle cx="16" cy="16" r="11" fill="rgba(13,148,136,0.5)">
-    <animate attributeName="r" values="8;15" dur="1.8s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.9;0" dur="1.8s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="16" cy="16" r="8" fill="#0d9488" stroke="#ffffff" stroke-width="3"/>
-</svg>`;
-  return {
-    url: svgDataUri(svg),
-    size: new google.maps.Size(32, 32),
-    scaledSize: new google.maps.Size(32, 32),
-    anchor: new google.maps.Point(16, 16),
-  };
+function makeContent(innerHtml: string, interactive = false): HTMLElement {
+  const el = document.createElement('div');
+  el.className = interactive ? 'gm-marker-content gm-interactive' : 'gm-marker-content';
+  el.innerHTML = innerHtml;
+  return el;
 }
 
 interface GoogleMapViewProps {
@@ -137,8 +82,10 @@ export function GoogleMapView({
   onPick,
 }: GoogleMapViewProps) {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const viewRef = useRef<{ center: LatLng; zoom: number } | null>(null);
 
   const onMapReadyRef = useRef(onMapReady);
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -164,12 +111,17 @@ export function GoogleMapView({
 
   useEffect(() => {
     let disposed = false;
+    let instance: google.maps.Map | null = null;
     loadGoogleMaps()
       .then((google) => {
         if (disposed || !containerRef.current) return;
-        const instance = new google.maps.Map(containerRef.current, {
-          center: { lat: 48.8566, lng: 2.3522 },
-          zoom: 13,
+        const center = viewRef.current?.center ?? { lat: 48.8566, lng: 2.3522 };
+        const zoom = viewRef.current?.zoom ?? 13;
+        instance = new google.maps.Map(containerRef.current, {
+          center,
+          zoom,
+          mapId: MAP_ID,
+          colorScheme: theme === 'dark' ? 'DARK' : 'LIGHT',
           mapTypeControl: true,
           mapTypeControlOptions: {
             position: google.maps.ControlPosition.TOP_RIGHT,
@@ -188,8 +140,13 @@ export function GoogleMapView({
           }
         });
 
-        const updateBounds = () => {
-          const b = instance.getBounds();
+        const updateView = () => {
+          const c = instance?.getCenter();
+          const z = instance?.getZoom();
+          if (c && z != null) {
+            viewRef.current = { center: { lat: c.lat(), lng: c.lng() }, zoom: z };
+          }
+          const b = instance?.getBounds();
           if (!b) return;
           const ne = b.getNorthEast();
           const sw = b.getSouthWest();
@@ -200,10 +157,11 @@ export function GoogleMapView({
             neLng: ne.lng(),
           });
         };
-        instance.addListener('idle', updateBounds);
-        updateBounds();
+        instance.addListener('idle', updateView);
+        updateView();
 
         instance.addListener('maptypeid_changed', () => {
+          if (!instance) return;
           const id = instance.getMapTypeId();
           if (id === google.maps.MapTypeId.SATELLITE || id === google.maps.MapTypeId.HYBRID) {
             instance.setTilt(45);
@@ -221,74 +179,85 @@ export function GoogleMapView({
 
     return () => {
       disposed = true;
+      instance = null;
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!map) return;
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    if (!AdvancedMarkerElement) return;
 
-    const markers: google.maps.Marker[] = [];
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    const centered = { anchorLeft: '-50%', anchorTop: '-50%' };
 
     if (draftPosition) {
       markers.push(
-        new google.maps.Marker({
+        new AdvancedMarkerElement({
           map,
           position: draftPosition,
-          icon: makePinIcon(null),
+          content: makeContent(pinHtml(null)),
           zIndex: 200,
         }),
       );
     }
 
     pois.forEach((poi) => {
-      const marker = new google.maps.Marker({
+      const marker = new AdvancedMarkerElement({
         map,
         position: { lat: poi.lat, lng: poi.lng },
-        icon: makePinIcon(poi.category),
+        content: makeContent(pinHtml(poi.category), true),
         zIndex: 500,
         title: poi.name,
+        gmpClickable: true,
       });
-      marker.addListener('click', () => onSelectRef.current(poi.id));
+      marker.addListener('gmp-click', () => onSelectRef.current(poi.id));
       markers.push(marker);
     });
 
     const selected = selectedId ? pois.find((p) => p.id === selectedId) : null;
     if (selected) {
       markers.push(
-        new google.maps.Marker({
+        new AdvancedMarkerElement({
           map,
           position: { lat: selected.lat, lng: selected.lng },
-          icon: makeSelectedRingIcon(),
+          content: makeContent('<div class="marker-selected-ring"></div>'),
           zIndex: 600,
+          ...centered,
         }),
       );
     }
 
     if (userPosition) {
       markers.push(
-        new google.maps.Marker({
+        new AdvancedMarkerElement({
           map,
           position: userPosition,
-          icon: makeUserLocationIcon(),
+          content: makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
           zIndex: 1000,
+          ...centered,
         }),
       );
     }
 
     if (searchPosition) {
       markers.push(
-        new google.maps.Marker({
+        new AdvancedMarkerElement({
           map,
           position: searchPosition,
-          icon: makeSearchIcon(),
+          content: makeContent('<div class="marker-search-dot"><div class="marker-search-pulse"></div></div>'),
           zIndex: 800,
+          ...centered,
         }),
       );
     }
 
     return () => {
       markers.forEach((m) => {
-        m.setMap(null);
+        m.map = null;
       });
     };
   }, [map, pois, selectedId, draftPosition, userPosition, searchPosition]);

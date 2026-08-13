@@ -1,11 +1,12 @@
 FROM node:22-alpine AS build
 ARG VITE_GOOGLE_MAPS_API_KEY
+ARG VITE_GOOGLE_MAPS_MAP_ID
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY client/package.json client/
 RUN npm ci -w client --include-workspace-root
 COPY . .
-RUN VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY npm run build -w client
+RUN VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY VITE_GOOGLE_MAPS_MAP_ID=$VITE_GOOGLE_MAPS_MAP_ID npm run build -w client
 
 FROM nginx:alpine
 COPY client/nginx.conf /etc/nginx/conf.d/default.conf
