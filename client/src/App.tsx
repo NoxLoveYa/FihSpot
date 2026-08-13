@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SearchSessionProvider } from './context/SearchSessionContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -121,10 +122,12 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
-            <div className="h-full w-full">
-              <OfflineBanner />
-              <AnimatedRoutes />
-            </div>
+            <SearchSessionProvider>
+              <div className="h-full w-full">
+                <OfflineBanner />
+                <AnimatedRoutes />
+              </div>
+            </SearchSessionProvider>
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

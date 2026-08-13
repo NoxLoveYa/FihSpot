@@ -8,8 +8,9 @@ import type { Bounds, PoISummary, Search } from '../api/types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useSearchSession } from '../context/SearchSessionContext';
 import { scanForWater, haversineKm } from '../lib/waterScan';
-import type { ScanSensitivity, DetectedWater } from '../lib/waterScan';
+import type { ScanSensitivity } from '../lib/waterScan';
 import { SCAN_SENSITIVITIES } from '../lib/waterScan';
 import { GoogleMapView } from '../components/GoogleMapView';
 import type { MapType } from '../components/MapTypeToggle';
@@ -51,22 +52,33 @@ export function MapPage() {
     return prev === null || prev === '/login' || prev === '/register' || prev === '/profile' || prev === '/pois';
   });
 
-  // Spot search state
-  const [searchMode, setSearchMode] = useState(false);
-  const [searchArea, setSearchArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
-  const [searchPois, setSearchPois] = useState<PoISummary[]>([]);
+  // Spot search state — lifted into a session context so it survives SPA
+  // navigation (resets on a full page refresh).
+  const {
+    searchMode,
+    setSearchMode,
+    searchArea,
+    setSearchArea,
+    activeSearchId,
+    setActiveSearchId,
+    candidates,
+    setCandidates,
+    searchPois,
+    setSearchPois,
+    savedOpen,
+    setSavedOpen,
+    previewUrl,
+    previewSize,
+    setPreview,
+    clearSearch,
+  } = useSearchSession();
+
   const [searchLoading, setSearchLoading] = useState(false);
-  const [activeSearchId, setActiveSearchId] = useState<string | null>(null);
-  const [savedOpen, setSavedOpen] = useState(false);
   const [savedSearches, setSavedSearches] = useState<Search[]>([]);
   const [savedLoading, setSavedLoading] = useState(false);
 
-  // Pond scan state
-  const [candidates, setCandidates] = useState<DetectedWater[]>([]);
+  // Pond scan state (transient)
   const [scanning, setScanning] = useState(false);
-  const [scanPreviewUrl, setScanPreviewUrl] = useState<string | null>(null);
-  const [scanPreviewSize, setScanPreviewSize] = useState<{ width: number; height: number } | null>(null);
-  const scanPreviewRef = useRef<string | null>(null);
   const lastScanRef = useRef<string | null>(null);
   const [sensitivity, setSensitivity] = useState<ScanSensitivity>(() => {
     const saved = localStorage.getItem('fihspot_scan_sensitivity') as ScanSensitivity | null;
@@ -76,15 +88,6 @@ export function MapPage() {
   useEffect(() => {
     localStorage.setItem('fihspot_scan_sensitivity', sensitivity);
   }, [sensitivity]);
-
-  const revokeScanPreview = useCallback(() => {
-    if (scanPreviewRef.current) {
-      URL.revokeObjectURL(scanPreviewRef.current);
-      scanPreviewRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => revokeScanPreview(), [revokeScanPreview]);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -160,16 +163,10 @@ export function MapPage() {
     }
   }, [searchArea, runSearch]);
 
-  const clearSearch = useCallback(() => {
-    setSearchArea(null);
-    setSearchPois([]);
-    setActiveSearchId(null);
-    setCandidates([]);
-    setScanPreviewUrl(null);
-    setScanPreviewSize(null);
-    revokeScanPreview();
+  const handleClearSearch = useCallback(() => {
+    clearSearch();
     lastScanRef.current = null;
-  }, [revokeScanPreview]);
+  }, [clearSearch]);
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number; radiusKm: number }) => {
@@ -179,23 +176,18 @@ export function MapPage() {
         const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity);
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
-        revokeScanPreview();
-        scanPreviewRef.current = previewUrl;
+        setPreview(previewUrl, { width, height });
         setCandidates(filtered);
-        setScanPreviewUrl(previewUrl);
-        setScanPreviewSize({ width, height });
       } catch (e) {
         console.error('pond scan failed', e);
-        revokeScanPreview();
-        setScanPreviewUrl(null);
-        setScanPreviewSize(null);
+        setPreview(null, null);
         setCandidates([]);
         toast(t('scan.error'), 'error');
       } finally {
         setScanning(false);
       }
     },
-    [sensitivity, searchPois, revokeScanPreview, toast, t],
+    [sensitivity, searchPois, setPreview, toast, t],
   );
 
   useEffect(() => {
@@ -452,21 +444,22 @@ export function MapPage() {
         activeSearchId={activeSearchId}
         candidates={candidates}
         scanning={scanning}
-        previewUrl={scanPreviewUrl}
-        previewSize={scanPreviewSize}
+        previewUrl={previewUrl}
+        previewSize={previewSize}
         sensitivity={sensitivity}
         onSensitivityChange={setSensitivity}
         onScan={runScan}
         onAddCandidate={handleAddCandidate}
+        onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
         onRadiusChange={handleRadiusChange}
-        onClose={clearSearch}
+        onClose={handleClearSearch}
         onSelect={(id) => setSelectedId(id)}
         onToggleSeen={handleToggleSeen}
         onSaved={(search) => {
           setActiveSearchId(search.id);
           loadSavedSearches();
         }}
-        onDeleted={clearSearch}
+        onDeleted={handleClearSearch}
         onRenamed={loadSavedSearches}
       />
 
@@ -493,7 +486,7 @@ export function MapPage() {
           </button>
           <button
             onClick={() => {
-              if (searchMode) clearSearch();
+              if (searchMode) handleClearSearch();
               setSearchMode((v) => !v);
             }}
             aria-label={t('search.toggle')}

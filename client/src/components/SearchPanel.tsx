@@ -48,6 +48,7 @@ interface SearchPanelProps {
   onSensitivityChange: (sensitivity: ScanSensitivity) => void;
   onScan: (area: { lat: number; lng: number; radiusKm: number }) => void;
   onAddCandidate: (latlng: LatLng) => void;
+  onCenter: (latlng: LatLng) => void;
   onRadiusChange: (radiusKm: number) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
@@ -70,6 +71,7 @@ export function SearchPanel({
   onSensitivityChange,
   onScan,
   onAddCandidate,
+  onCenter,
   onRadiusChange,
   onClose,
   onSelect,
@@ -346,7 +348,20 @@ export function SearchPanel({
                 </p>
                 <ul className="flex flex-col gap-2">
                   {candidates.map((c) => (
-                    <li key={`${c.lat.toFixed(6)}-${c.lng.toFixed(6)}`} className="glass-strong flex items-center gap-3 rounded-2xl p-3">
+                    <li
+                      key={`${c.lat.toFixed(6)}-${c.lng.toFixed(6)}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onCenter(c)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onCenter(c);
+                        }
+                      }}
+                      title={t('scan.center')}
+                      className="glass-strong flex cursor-pointer items-center gap-3 rounded-2xl p-3 transition-all hover:-translate-y-0.5 hover:shadow-soft"
+                    >
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-300">
                         <FontAwesomeIcon icon={faWater} className="h-4 w-4" />
                       </span>
@@ -358,7 +373,10 @@ export function SearchPanel({
                         </p>
                       </div>
                       <button
-                        onClick={() => onAddCandidate(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddCandidate(c);
+                        }}
                         aria-label={t('scan.add')}
                         title={t('scan.add')}
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-700"

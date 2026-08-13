@@ -142,6 +142,7 @@ export const en = {
   'scan.candidates': 'Potential ponds ({{count}})',
   'scan.spot': 'Potential pond',
   'scan.add': 'Add as point',
+  'scan.center': 'Center map on this spot',
   'scan.error': "Couldn't scan this area for ponds",
   'scan.noPonds': 'No ponds detected here. Try a smaller radius or another spot.',
 

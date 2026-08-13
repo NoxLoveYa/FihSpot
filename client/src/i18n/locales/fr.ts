@@ -142,6 +142,7 @@ export const fr = {
   'scan.candidates': 'Plans d\'eau potentiels ({{count}})',
   'scan.spot': 'Plan d\'eau potentiel',
   'scan.add': 'Ajouter comme point',
+  'scan.center': 'Centrer la carte sur ce spot',
   'scan.error': 'Impossible de scanner cette zone pour les plans d\'eau',
   'scan.noPonds': 'Aucun plan d\'eau détecté ici. Essayez un plus petit rayon ou un autre endroit.',
 
