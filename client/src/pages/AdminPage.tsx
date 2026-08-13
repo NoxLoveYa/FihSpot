@@ -756,24 +756,36 @@ export function AdminPage() {
               ) : modComments.length === 0 ? (
                 <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noComments')}</p>
               ) : (
-                <div className="glass-strong divide-y divide-slate-200/60 overflow-hidden rounded-2xl dark:divide-slate-700">
+                <div className="space-y-3">
                   {modComments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-3 px-4 py-3">
-                      <Avatar url={c.user.avatarUrl} name={c.user.name} size="h-8 w-8" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-700 dark:text-slate-200">{c.content}</p>
-                        <p className="mt-0.5 truncate text-xs text-slate-400">
-                          {c.user.name} · {c.poi.name} · {formatDate(c.createdAt)}
-                        </p>
+                    <div key={c.id} className="glass-strong rounded-2xl p-4">
+                      <div className="flex items-start gap-3">
+                        <Avatar url={c.user.avatarUrl} name={c.user.name} size="h-9 w-9" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{c.user.name}</span>
+                            <span className="text-xs text-slate-400">{formatDate(c.createdAt)}</span>
+                          </div>
+                          <p className="mt-1.5 rounded-xl rounded-tl-sm bg-slate-100/80 px-3 py-2 text-sm leading-relaxed text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
+                            {c.content}
+                          </p>
+                          <button
+                            onClick={() => navigate(`/?poi=${c.poi.id}`)}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-500/20 dark:text-brand-300"
+                          >
+                            <FontAwesomeIcon icon={faMapPin} className="h-3 w-3" />
+                            <span className="line-clamp-1">{c.poi.name}</span>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => deleteComment(c)}
+                          disabled={busyComment === c.id}
+                          title={t('admin.mod.deleteComment')}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                        >
+                          {busyComment === c.id ? <Spinner className="h-3.5 w-3.5" /> : <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />}
+                        </button>
                       </div>
-                      <Button
-                        variant="danger"
-                        onClick={() => deleteComment(c)}
-                        disabled={busyComment === c.id}
-                        className="min-h-[34px] px-2.5 py-1.5 text-xs"
-                      >
-                        {t('admin.mod.deleteComment')}
-                      </Button>
                     </div>
                   ))}
                 </div>
@@ -794,21 +806,34 @@ export function AdminPage() {
               ) : modPhotos.length === 0 ? (
                 <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noPhotos')}</p>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-3">
                   {modPhotos.map((p) => (
-                    <div key={p.id} className="group relative aspect-square overflow-hidden rounded-2xl">
-                      <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-medium text-white">
-                        {p.poi.name}
-                      </span>
-                      <button
-                        onClick={() => deletePhoto(p)}
-                        disabled={busyPhoto === p.id}
-                        title={t('admin.mod.deletePhoto')}
-                        className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
-                      >
-                        {busyPhoto === p.id ? <Spinner className="h-3 w-3" /> : <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />}
-                      </button>
+                    <div key={p.id} className="glass-strong overflow-hidden rounded-2xl">
+                      <div className="group relative aspect-[4/3] w-full overflow-hidden">
+                        <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <button
+                          onClick={() => deletePhoto(p)}
+                          disabled={busyPhoto === p.id}
+                          title={t('admin.mod.deletePhoto')}
+                          className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
+                        >
+                          {busyPhoto === p.id ? <Spinner className="h-3.5 w-3.5" /> : <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-2.5">
+                        <Avatar url={p.user.avatarUrl} name={p.user.name} size="h-7 w-7" />
+                        <div className="min-w-0 flex-1">
+                          <button
+                            onClick={() => navigate(`/?poi=${p.poi.id}`)}
+                            className="block truncate text-xs font-semibold text-slate-700 transition-colors hover:text-brand-600 dark:text-slate-200"
+                          >
+                            {p.poi.name}
+                          </button>
+                          <p className="text-[11px] text-slate-400">
+                            {p.user.name} · {formatDate(p.createdAt)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
