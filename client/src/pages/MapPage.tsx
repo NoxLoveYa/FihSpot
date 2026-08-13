@@ -168,12 +168,16 @@ export function MapPage() {
     lastScanRef.current = null;
   }, [clearSearch]);
 
+  const handleCloseDrawer = useCallback(() => setSelectedId(null), []);
+
   const runScan = useCallback(
     async (area: { lat: number; lng: number; radiusKm: number }) => {
       if (!mapRef.current) return;
       setScanning(true);
       try {
-        const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity);
+        const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity, {
+          minZoom: mapRef.current?.getZoom() ?? undefined,
+        });
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
         setPreview(previewUrl, { width, height });
@@ -245,9 +249,17 @@ export function MapPage() {
     [isDesktop],
   );
 
+  // Read the latest POI lists via refs so `focusPoi` is stable. If it depended
+  // on `pois`, the pan→idle→reload→new array cycle would re-run this forever,
+  // constantly re-centering and re-creating every marker on the map.
+  const poisRef = useRef(pois);
+  poisRef.current = pois;
+  const searchPoisRef = useRef(searchPois);
+  searchPoisRef.current = searchPois;
+
   const focusPoi = useCallback(
     (id: string) => {
-      const poi = [...pois, ...searchPois].find((p) => p.id === id);
+      const poi = [...poisRef.current, ...searchPoisRef.current].find((p) => p.id === id);
       if (poi) {
         panToPoi(poi.lat, poi.lng);
       } else {
@@ -257,7 +269,7 @@ export function MapPage() {
           .catch(() => {});
       }
     },
-    [pois, searchPois, panToPoi],
+    [panToPoi],
   );
 
   useEffect(() => {
@@ -421,7 +433,7 @@ export function MapPage() {
 
       <PoiDrawer
         poiId={selectedId}
-        onClose={() => setSelectedId(null)}
+        onClose={handleCloseDrawer}
         onPoiChanged={reload}
       />
 

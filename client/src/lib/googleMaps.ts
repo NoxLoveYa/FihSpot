@@ -41,7 +41,7 @@ export function staticMapUrl(lat: number, lng: number, size = '600x300'): string
 
 /**
  * Static map of an area whose water fill is recolored to the dark-theme water
- * color (#93dbee), so ponds show up as exactly that color for detection.
+ * color (#68bfd9), so ponds show up as exactly that color for detection.
  */
 export function staticMapForScan(center: LatLng, zoom: number, size: number): string | null {
   if (!API_KEY) return null;
@@ -50,7 +50,7 @@ export function staticMapForScan(center: LatLng, zoom: number, size: number): st
     zoom: String(zoom),
     size: `${size}x${size}`,
     scale: '2',
-    style: 'feature:water|element:geometry.fill|color:0x93dbee',
+    style: 'feature:water|element:geometry.fill|color:0x68bfd9',
     key: API_KEY,
   });
   return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;

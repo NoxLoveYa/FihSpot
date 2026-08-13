@@ -42,20 +42,33 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
   const [mapImgError, setMapImgError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Keep latest props in refs so `load` only depends on `poiId` — otherwise a
+  // parent re-render (new inline `onClose`/`t` identity) re-triggers the fetch.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const tRef = useRef(t);
+  tRef.current = t;
+  const loadingRef = useRef(false);
+
   const load = useCallback(async () => {
     if (!poiId) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const { poi } = await api.getPoi(poiId);
       setPoi(poi);
       setVersion((v) => v + 1);
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : t('poi.genericError'), 'error');
-      onClose();
+      toastRef.current(e instanceof ApiError ? e.message : tRef.current('poi.genericError'), 'error');
+      onCloseRef.current();
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [poiId, toast, onClose, t]);
+  }, [poiId]);
 
   useEffect(() => {
     setPoi(null);

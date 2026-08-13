@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -162,6 +162,17 @@ export function PoisPage() {
     }
   }, [toast, t]);
 
+  const closeDrawer = useCallback(() => setSelectedId(null), []);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const viewOnMap = useCallback(() => {
+    const id = selectedIdRef.current;
+    if (id) {
+      setSelectedId(null);
+      navigate(`/?poi=${id}`);
+    }
+  }, [navigate]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -266,15 +277,9 @@ export function PoisPage() {
 
       <PoiDrawer
         poiId={selectedId}
-        onClose={() => setSelectedId(null)}
+        onClose={closeDrawer}
         onPoiChanged={load}
-        onViewOnMap={() => {
-          if (selectedId) {
-            const id = selectedId;
-            setSelectedId(null);
-            navigate(`/?poi=${id}`);
-          }
-        }}
+        onViewOnMap={viewOnMap}
       />
     </div>
   );

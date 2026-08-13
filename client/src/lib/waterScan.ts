@@ -13,8 +13,8 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return 2 * 6371 * Math.asin(Math.sqrt(s));
 }
 
-// Dark-theme water color as rendered by the interactive map (#93dbee).
-export const SCAN_WATER_COLOR = { hex: '#93dbee', r: 147, g: 219, b: 238 };
+// Dark-theme water color as rendered by the interactive map (#68bfd9 = hsl(194,60,63)).
+export const SCAN_WATER_COLOR = { hex: '#68bfd9', r: 104, g: 191, b: 217 };
 const DARK_WATER = { r: SCAN_WATER_COLOR.r, g: SCAN_WATER_COLOR.g, b: SCAN_WATER_COLOR.b };
 
 export function zoomForRadius(lat: number, radiusKm: number, size: number): number {
@@ -266,9 +266,16 @@ async function regionsFromImageData(
 export async function scanForWater(
   area: { lat: number; lng: number; radiusKm: number },
   sensitivity: ScanSensitivity = 'default',
+  opts?: { minZoom?: number },
 ): Promise<ScanResult> {
   const size = 640;
-  const zoom = zoomForRadius(area.lat, area.radiusKm, size);
+  // Use the current map zoom when it's higher than the radius-fitting zoom, so
+  // the analyzed image matches what the user is looking at (and the detected
+  // spots align with the map view).
+  const zoom = Math.min(
+    21,
+    Math.max(3, Math.round(Math.max(zoomForRadius(area.lat, area.radiusKm, size), opts?.minZoom ?? 0))),
+  );
   const url = staticMapForScan({ lat: area.lat, lng: area.lng }, zoom, size);
   if (!url) throw new Error('Map service unavailable');
 
@@ -304,8 +311,11 @@ export async function scanForWater(
   ctx.drawImage(image, 0, 0);
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  // Ground resolution: the image spans 2 * radius across 85% of its width.
-  const metersPerPx = (2 * area.radiusKm * 1000) / (img.width * 0.85);
+  // Ground resolution: at this zoom the world spans `256 * 2^zoom` pixels over
+  // the circumference at the scan latitude; the image covers `size` of those
+  // world pixels across `img.width` actual pixels.
+  const latRad = (area.lat * Math.PI) / 180;
+  const metersPerPx = (size * EARTH_CIRC_M * Math.cos(latRad)) / (256 * 2 ** zoom) / img.width;
   const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity, metersPerPx);
   const chosen = selectWaterCandidates(regions, totalWaterPx, img.width, img.height);
 
