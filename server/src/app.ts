@@ -4,6 +4,7 @@ import { config } from './config';
 import authRoutes from './routes/auth';
 import poiRoutes from './routes/pois';
 import userRoutes from './routes/users';
+import adminRoutes from './routes/admin';
 import { notFound, errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -19,6 +20,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/pois', poiRoutes);
   app.use('/api', userRoutes);
+  app.use('/api/admin', adminRoutes);
   app.use('/uploads', express.static(config.uploadsDir));
 
   app.use(notFound);

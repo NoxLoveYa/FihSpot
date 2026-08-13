@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
 import { config } from '../config';
 import { publicUser } from '../utils/serialize';
+import { isAdminEmail, syncAdminRole } from '../utils/admin';
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.post('/register', async (req, res, next) => {
         email: email.toLowerCase(),
         name,
         passwordHash: await hashPassword(password),
+        role: isAdminEmail(email) ? 'ADMIN' : 'USER',
       },
     });
 
@@ -57,7 +59,8 @@ router.post('/login', async (req, res, next) => {
       throw new ApiError(401, 'Incorrect email or password', 'INVALID_CREDENTIALS');
     }
 
-    res.json({ token: signToken(user.id), user: publicUser(user) });
+    const synced = await syncAdminRole(user);
+    res.json({ token: signToken(synced.id), user: publicUser(synced) });
   } catch (e) {
     next(e);
   }
@@ -107,7 +110,8 @@ router.post('/google', async (req, res, next) => {
       });
     }
 
-    res.json({ token: signToken(user.id), user: publicUser(user) });
+    const synced = await syncAdminRole(user);
+    res.json({ token: signToken(synced.id), user: publicUser(synced) });
   } catch (e) {
     next(e);
   }

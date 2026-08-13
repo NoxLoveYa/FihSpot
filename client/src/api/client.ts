@@ -1,4 +1,18 @@
-import type { Bounds, Comment, Photo, PoI, PoISummary, User, UserContent } from './types';
+import type {
+  AdminModerationComment,
+  AdminModerationPhoto,
+  AdminPoi,
+  AdminStatsResponse,
+  AdminUser,
+  Bounds,
+  Comment,
+  Photo,
+  PoI,
+  PoISummary,
+  Role,
+  User,
+  UserContent,
+} from './types';
 import i18n from '../i18n';
 
 const API_URL = '/api';
@@ -153,4 +167,32 @@ export const api = {
     return request<{ photo: Photo }>(`/pois/${poiId}/photos`, { method: 'POST', body: form });
   },
   deletePhoto: (photoId: string) => request<void>(`/pois/photos/${photoId}`, { method: 'DELETE' }),
+
+  // Admin
+  adminStats: () => request<AdminStatsResponse>('/admin/stats'),
+  listUsers: (params: { search?: string; sort?: string; page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.sort) qs.set('sort', params.sort);
+    if (params.page) qs.set('page', String(params.page));
+    const q = qs.toString();
+    return request<{ users: AdminUser[]; total: number; page: number; pages: number }>(`/admin/users${q ? `?${q}` : ''}`);
+  },
+  updateUserAdmin: (id: string, data: { name?: string; email?: string; role?: Role; password?: string }) =>
+    request<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserAdmin: (id: string) => request<void>(`/admin/users/${id}`, { method: 'DELETE' }),
+  listPoisAdmin: (params: { search?: string; page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.page) qs.set('page', String(params.page));
+    const q = qs.toString();
+    return request<{ pois: AdminPoi[]; total: number; page: number; pages: number }>(`/admin/pois${q ? `?${q}` : ''}`);
+  },
+  updatePoiAdmin: (id: string, data: { name?: string; description?: string | null; category?: string | null; demo?: boolean }) =>
+    request<{ poi: AdminPoi }>(`/admin/pois/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePoiAdmin: (id: string) => request<void>(`/admin/pois/${id}`, { method: 'DELETE' }),
+  moderation: () =>
+    request<{ comments: AdminModerationComment[]; photos: AdminModerationPhoto[] }>('/admin/moderation'),
+  deleteCommentAdmin: (id: string) => request<void>(`/admin/comments/${id}`, { method: 'DELETE' }),
+  deletePhotoAdmin: (id: string) => request<void>(`/admin/photos/${id}`, { method: 'DELETE' }),
 };

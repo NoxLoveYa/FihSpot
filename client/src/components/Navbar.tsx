@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCompass, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faCompass, faRightFromBracket, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -83,6 +83,18 @@ export function Navbar({ mapType, onMapTypeChange, search }: NavbarProps) {
         </button>
         {search && <div className="min-w-0 flex-1 lg:w-96 lg:flex-none">{search}</div>}
       </div>
+
+      {user?.role === 'ADMIN' && (
+        <button
+          onClick={() => navigate('/admin')}
+          aria-label={t('nav.admin')}
+          title={t('nav.admin')}
+          className={btn}
+        >
+          <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4 text-amber-500" />
+          <span className="hidden lg:inline">{t('nav.admin')}</span>
+        </button>
+      )}
 
       <div className="flex min-w-0 items-center gap-1 lg:pointer-events-auto lg:gap-2">
         <ThemeToggle className={btn} />

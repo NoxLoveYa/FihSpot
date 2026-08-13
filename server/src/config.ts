@@ -13,4 +13,8 @@ export const config = {
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   uploadsDir: path.resolve(__dirname, '../uploads'),
   demoEnabled: process.env.NODE_ENV !== 'production',
+  adminEmails: (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
 };

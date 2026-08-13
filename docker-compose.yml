@@ -32,6 +32,7 @@ services:
       CLIENT_URL: ${CLIENT_URL:-https://fihspot.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - ./server/uploads:/app/server/uploads
 

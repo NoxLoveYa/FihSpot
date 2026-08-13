@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
-import { unlinkUpload } from '../utils/files';
+import { deletePhotoWithFile, deletePoiWithFiles } from '../services/content';
 import { config } from '../config';
 
 const router = Router();
@@ -113,7 +113,8 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
-    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
+    if (poi.createdById !== req.user!.id && req.user!.role !== 'ADMIN')
+      throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     const { name, description, category } = req.body as {
       name?: string;
@@ -138,16 +139,12 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
-    const poi = await prisma.poI.findUnique({
-      where: { id: req.params.id },
-      include: { photos: { select: { url: true } } },
-    });
+    const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
-    if (poi.createdById !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
+    if (poi.createdById !== req.user!.id && req.user!.role !== 'ADMIN')
+      throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
-    const photoUrls = poi.photos.map((p) => p.url);
-    await prisma.poI.delete({ where: { id: poi.id } });
-    photoUrls.forEach(unlinkUpload);
+    await deletePoiWithFiles(poi.id);
     res.status(204).end();
   } catch (e) {
     next(e);
@@ -181,7 +178,8 @@ router.delete('/comments/:commentId', requireAuth, async (req, res, next) => {
   try {
     const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
     if (!comment) throw new ApiError(404, 'Comment not found', 'COMMENT_NOT_FOUND');
-    if (comment.userId !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
+    if (comment.userId !== req.user!.id && req.user!.role !== 'ADMIN')
+      throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
     await prisma.comment.delete({ where: { id: comment.id } });
     res.status(204).end();
@@ -218,10 +216,10 @@ router.delete('/photos/:photoId', requireAuth, async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({ where: { id: req.params.photoId } });
     if (!photo) throw new ApiError(404, 'Photo not found', 'PHOTO_NOT_FOUND');
-    if (photo.userId !== req.user!.id) throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
+    if (photo.userId !== req.user!.id && req.user!.role !== 'ADMIN')
+      throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
-    await prisma.photo.delete({ where: { id: photo.id } });
-    unlinkUpload(photo.url);
+    await deletePhotoWithFile(photo.id);
     res.status(204).end();
   } catch (e) {
     next(e);

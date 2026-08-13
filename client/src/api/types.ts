@@ -1,8 +1,11 @@
+export type Role = 'USER' | 'ADMIN';
+
 export interface User {
   id: string;
   email: string;
   name: string;
   avatarUrl: string | null;
+  role: Role;
   createdAt: string;
 }
 
@@ -77,4 +80,46 @@ export interface UserContent {
   pois: UserPoi[];
   comments: UserComment[];
   photos: UserPhoto[];
+}
+
+export interface AdminStats {
+  users: number;
+  pois: number;
+  comments: number;
+  photos: number;
+  demoPois: number;
+}
+
+export interface AdminStatsResponse {
+  stats: AdminStats;
+  recentUsers: Array<Pick<User, 'id' | 'name' | 'email' | 'avatarUrl' | 'role' | 'createdAt'>>;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl: string | null;
+  role: Role;
+  createdAt: string;
+  _count: { pois: number; comments: number; photos: number };
+}
+
+export interface AdminPoi {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  demo: boolean;
+  createdAt: string;
+  createdBy: Pick<User, 'id' | 'name' | 'avatarUrl'>;
+  _count: { comments: number; photos: number };
+}
+
+export interface AdminModerationComment extends Comment {
+  poi: { id: string; name: string };
+}
+
+export interface AdminModerationPhoto extends Photo {
+  poi: { id: string; name: string };
 }

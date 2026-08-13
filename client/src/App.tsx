@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { OfflineBanner } from './components/OfflineBanner';
 import { MapPage } from './pages/MapPage';
 import { PoisPage } from './pages/PoisPage';
@@ -13,6 +14,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { UserPage } from './pages/UserPage';
+import { AdminPage } from './pages/AdminPage';
 import { setPreviousPath } from './navigation';
 
 function PageTransition({ children }: { children: ReactNode }) {
@@ -79,6 +81,16 @@ function AnimatedRoutes() {
                 <PoisPage />
               </PageTransition>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <PageTransition>
+                <AdminPage />
+              </PageTransition>
+            </AdminRoute>
           }
         />
         <Route

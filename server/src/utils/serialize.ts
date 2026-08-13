@@ -3,6 +3,7 @@ export function publicUser(user: {
   email: string;
   name: string;
   avatarUrl: string | null;
+  role: string;
   createdAt: Date;
 }) {
   return {
@@ -10,6 +11,7 @@ export function publicUser(user: {
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl,
+    role: user.role,
     createdAt: user.createdAt,
   };
 }
