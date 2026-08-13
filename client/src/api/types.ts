@@ -20,6 +20,23 @@ export interface PoISummary {
   _count: { comments: number; photos: number };
   createdAt: string;
   comments?: Comment[];
+  distanceKm?: number;
+  seen?: boolean;
+}
+
+export interface Search {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchDetail {
+  search: Search;
+  pois: PoISummary[];
 }
 
 export interface Comment {

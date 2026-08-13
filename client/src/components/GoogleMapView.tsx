@@ -8,9 +8,12 @@ import type { Bounds, PoISummary } from '../api/types';
 
 const PIN_COLOR = '#2563eb';
 
-function pinHtml(): string {
+function pinHtml(seen = false): string {
   const fish = faIcon(faFish);
-  return `<div class="marker-pin" style="background:${PIN_COLOR}">${fish ? fish.html[0] : ''}</div>`;
+  const pin = `<div class="marker-pin${seen ? ' marker-pin-seen' : ''}" style="background:${PIN_COLOR}">${
+    fish ? fish.html[0] : ''
+  }</div>`;
+  return seen ? `${pin}<div class="marker-seen-badge"></div>` : pin;
 }
 
 function makeContent(innerHtml: string, interactive = false): HTMLElement {
@@ -27,6 +30,8 @@ interface GoogleMapViewProps {
   draftPosition: LatLng | null;
   userPosition: LatLng | null;
   searchPosition: LatLng | null;
+  searchArea: { lat: number; lng: number; radiusKm: number } | null;
+  candidates: LatLng[];
   onMapReady: (map: google.maps.Map) => void;
   onBoundsChange: (bounds: Bounds) => void;
   onSelect: (id: string) => void;
@@ -40,6 +45,8 @@ export function GoogleMapView({
   draftPosition,
   userPosition,
   searchPosition,
+  searchArea,
+  candidates,
   onMapReady,
   onBoundsChange,
   onSelect,
@@ -187,8 +194,8 @@ export function GoogleMapView({
       const marker = new AdvancedMarkerElement({
         map,
         position: { lat: poi.lat, lng: poi.lng },
-        content: makeContent(pinHtml(), true),
-        zIndex: 500,
+        content: makeContent(pinHtml(poi.seen), true),
+        zIndex: poi.seen ? 450 : 500,
         title: poi.name,
         gmpClickable: true,
       });
@@ -233,12 +240,54 @@ export function GoogleMapView({
       );
     }
 
+    if (searchArea) {
+      markers.push(
+        new AdvancedMarkerElement({
+          map,
+          position: { lat: searchArea.lat, lng: searchArea.lng },
+          content: makeContent('<div class="marker-search-anchor"></div>'),
+          zIndex: 900,
+          ...centered,
+        }),
+      );
+    }
+
+    candidates.forEach((candidate) => {
+      markers.push(
+        new AdvancedMarkerElement({
+          map,
+          position: candidate,
+          content: makeContent('<div class="marker-candidate"><div class="marker-candidate-pulse"></div></div>'),
+          zIndex: 850,
+          ...centered,
+        }),
+      );
+    });
+
     return () => {
       markers.forEach((m) => {
         m.map = null;
       });
     };
-  }, [map, pois, selectedId, draftPosition, userPosition, searchPosition]);
+  }, [map, pois, selectedId, draftPosition, userPosition, searchPosition, searchArea, candidates]);
+
+  useEffect(() => {
+    if (!map || !searchArea) return;
+    const circle = new window.google.maps.Circle({
+      map,
+      center: { lat: searchArea.lat, lng: searchArea.lng },
+      radius: searchArea.radiusKm * 1000,
+      strokeColor: '#6366f1',
+      strokeOpacity: 0.7,
+      strokeWeight: 2,
+      fillColor: '#6366f1',
+      fillOpacity: 0.08,
+      clickable: false,
+    });
+    return () => {
+      circle.setMap(null);
+    };
+  }, [map, searchArea]);
 
   return (
     <div className="relative h-full w-full">

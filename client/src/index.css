@@ -86,6 +86,7 @@
 }
 
 .gm-marker-content {
+  position: relative;
   pointer-events: none;
 }
 
@@ -203,5 +204,81 @@
     opacity: 1;
     transform: scale(1);
   }
+}
+
+.marker-pin-seen {
+  filter: grayscale(0.65) brightness(0.92);
+  opacity: 0.72;
+}
+
+.marker-seen-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+  animation: markerFadeIn 0.35s ease;
+}
+
+.marker-seen-badge::after {
+  content: '✓';
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+}
+
+.marker-search-anchor {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #6366f1;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 14px -2px rgba(99, 102, 241, 0.7);
+  animation: searchFadeIn 0.3s ease;
+}
+
+.marker-search-anchor::before {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 3px solid rgba(99, 102, 241, 0.4);
+  animation: selectedPulse 1.8s ease-out infinite;
+}
+
+.marker-candidate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0d9488;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px -2px rgba(13, 148, 136, 0.8);
+  animation: searchFadeIn 0.3s ease;
+}
+
+.marker-candidate::after {
+  content: '●';
+  font-size: 8px;
+  line-height: 1;
+  color: #fff;
+}
+
+.marker-candidate-pulse {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 3px solid rgba(13, 148, 136, 0.45);
+  animation: selectedPulse 1.8s ease-out infinite;
 }
 

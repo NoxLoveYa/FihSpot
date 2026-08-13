@@ -27,6 +27,21 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const header = req.headers.authorization;
+  if (header?.startsWith('Bearer ')) {
+    const userId = verifyToken(header.slice(7));
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        const synced = await syncAdminRole(user);
+        req.user = synced;
+      }
+    }
+  }
+  next();
+}
+
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated', code: 'NOT_AUTHENTICATED' });
