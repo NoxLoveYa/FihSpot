@@ -22,7 +22,7 @@ import {
 import type { PoISummary, Search } from '../api/types';
 import type { LatLng } from '../lib/googleMaps';
 import type { DetectedWater, ScanSensitivity } from '../lib/waterScan';
-import { RADIUS_OPTIONS_KM, SCAN_SENSITIVITIES, SCAN_WATER_COLOR, haversineKm } from '../lib/waterScan';
+import { SCAN_SENSITIVITIES, SCAN_WATER_COLOR, haversineKm } from '../lib/waterScan';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -47,10 +47,8 @@ interface SearchPanelProps {
   previewUrl: string | null;
   previewSize: { width: number; height: number } | null;
   sensitivity: ScanSensitivity;
-  radius: number;
   zoom: number;
   onSensitivityChange: (sensitivity: ScanSensitivity) => void;
-  onRadiusChange: (radiusKm: number) => void;
   onScan: (area: { lat: number; lng: number }) => void;
   onAddCandidate: (latlng: LatLng) => void;
   onCenter: (latlng: LatLng) => void;
@@ -76,10 +74,8 @@ export function SearchPanel({
   previewUrl,
   previewSize,
   sensitivity,
-  radius,
   zoom,
   onSensitivityChange,
-  onRadiusChange,
   onScan,
   onAddCandidate,
   onCenter,
@@ -242,27 +238,6 @@ export function SearchPanel({
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4 safe-bottom">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t('search.radius')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {RADIUS_OPTIONS_KM.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => onRadiusChange(r)}
-                    className={`min-h-[36px] rounded-full px-4 text-sm font-semibold transition-colors ${
-                      radius === r
-                        ? 'bg-brand-600 text-white shadow-float'
-                        : 'glass text-slate-600 hover:brightness-105 dark:text-slate-200'
-                    }`}
-                  >
-                    {r} km
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t('scan.size')}

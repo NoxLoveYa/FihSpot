@@ -111,7 +111,6 @@ export const en = {
   'search.tapMap': 'Tap the map to set the search center',
   'search.title': 'Spot search',
   'search.close': 'Close',
-  'search.radius': 'Scan radius',
   'search.minimize': 'Minimize panel',
   'search.restore': 'Restore search panel',
   'search.results': 'Spots ({{count}})',

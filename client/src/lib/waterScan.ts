@@ -20,7 +20,6 @@ export { haversineKm };
 export { SCAN_SENSITIVITIES } from './waterAnalysis';
 export type { DetectedWater, ScanSensitivity };
 
-export const RADIUS_OPTIONS_KM: number[] = [5, 30, 50];
 export const DEFAULT_RADIUS_KM = 5;
 
 export interface ScanResult {
@@ -35,7 +34,6 @@ export interface ScanResult {
 }
 
 export interface ScanOptions {
-  radiusKm?: number;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -323,7 +321,9 @@ export async function scanForWater(
   sensitivity: ScanSensitivity = 'default',
   opts?: ScanOptions,
 ): Promise<ScanResult> {
-  const radiusKm = opts?.radiusKm ?? DEFAULT_RADIUS_KM;
+  // The scan is fixed to a 5 km zone (see DEFAULT_RADIUS_KM): the smallest,
+  // most useful radius, at a precision and cost that fit the tile budget.
+  const radiusKm = DEFAULT_RADIUS_KM;
 
   const chunkZoom = chooseChunkZoom(area, radiusKm);
   const tiles = planTiles(area, radiusKm, chunkZoom);
