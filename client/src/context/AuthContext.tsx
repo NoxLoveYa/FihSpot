@@ -27,7 +27,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => getCachedUser());
-  const [loading, setLoading] = useState(true);
+  // Startup is never blocked on `/auth/me`: the app renders instantly with the
+  // cached user (or as logged out) and revalidates in the background. On a cold
+  // start the first request can be delayed through the service worker, and
+  // blocking here would show the full-screen loader on every reopen.
+  const loading = false;
 
   const revalidate = useCallback(async () => {
     try {
@@ -44,11 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!getCachedUser() && !localStorage.getItem('fihspot_token')) {
-      setLoading(false);
-      return;
-    }
-    revalidate().finally(() => setLoading(false));
+    if (!getCachedUser() && !localStorage.getItem('fihspot_token')) return;
+    void revalidate();
   }, [revalidate]);
 
   useEffect(() => {

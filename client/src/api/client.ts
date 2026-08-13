@@ -21,6 +21,12 @@ const API_URL = '/api';
 const TOKEN_KEY = 'fihspot_token';
 const USER_KEY = 'fihspot_user';
 
+// Longest we wait for any API call. Prevents the app from hanging forever on a
+// request that never settles (e.g. a request stalled in the service worker on
+// iOS after a cold start), which would otherwise leave the app stuck on the
+// loading screen.
+const REQUEST_TIMEOUT_MS = 15000;
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -73,10 +79,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    res = await fetch(`${API_URL}${path}`, { ...options, headers, signal: controller.signal });
   } catch {
     throw new ApiError(0, i18n.t('errors.noConnection'), 'NO_CONNECTION');
+  } finally {
+    clearTimeout(timer);
   }
 
   if (res.status === 401) {

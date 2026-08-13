@@ -23,6 +23,18 @@ document.addEventListener(
 
 registerSW({ immediate: true });
 
+// When a newer service worker takes control (skipWaiting/clientsClaim), reload
+// so the page runs against the current build's HTML+assets. Without this, a
+// cold start on mobile can briefly run an old index.html that references
+// assets the updated worker already removed from its cache — leaving the app
+// stuck on the loading screen.
+let refreshing = false;
+navigator.serviceWorker?.addEventListener('controllerchange', () => {
+  if (refreshing) return;
+  refreshing = true;
+  window.location.reload();
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
