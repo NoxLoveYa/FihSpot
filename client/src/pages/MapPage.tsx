@@ -9,7 +9,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSearchSession } from '../context/SearchSessionContext';
-import { scanForWater, haversineKm } from '../lib/waterScan';
+import { scanForWater, haversineKm, DEFAULT_RADIUS_KM, RADIUS_OPTIONS_KM } from '../lib/waterScan';
 import type { ScanSensitivity } from '../lib/waterScan';
 import { SCAN_SENSITIVITIES } from '../lib/waterScan';
 import { GoogleMapView } from '../components/GoogleMapView';
@@ -77,15 +77,24 @@ export function MapPage() {
 
   // Pond scan state (transient)
   const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
   const lastScanRef = useRef<string | null>(null);
   const [sensitivity, setSensitivity] = useState<ScanSensitivity>(() => {
     const saved = localStorage.getItem('fihspot_scan_sensitivity') as ScanSensitivity | null;
     return saved && SCAN_SENSITIVITIES.includes(saved) ? saved : 'default';
   });
+  const [scanRadiusKm, setScanRadiusKm] = useState<number>(() => {
+    const saved = Number(localStorage.getItem('fihspot_scan_radius'));
+    return RADIUS_OPTIONS_KM.includes(saved) ? saved : DEFAULT_RADIUS_KM;
+  });
 
   useEffect(() => {
     localStorage.setItem('fihspot_scan_sensitivity', sensitivity);
   }, [sensitivity]);
+
+  useEffect(() => {
+    localStorage.setItem('fihspot_scan_radius', String(scanRadiusKm));
+  }, [scanRadiusKm]);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -195,11 +204,12 @@ export function MapPage() {
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number }) => {
-      if (!mapRef.current) return;
       setScanning(true);
+      setScanProgress(null);
       try {
         const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity, {
-          mapZoom: mapRef.current?.getZoom() ?? undefined,
+          radiusKm: scanRadiusKm,
+          onProgress: (done, total) => setScanProgress({ done, total }),
         });
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
@@ -212,18 +222,19 @@ export function MapPage() {
         toast(t('scan.error'), 'error');
       } finally {
         setScanning(false);
+        setScanProgress(null);
       }
     },
-    [sensitivity, searchPois, setPreview, toast, t],
+    [sensitivity, scanRadiusKm, searchPois, setPreview, toast, t],
   );
 
   useEffect(() => {
     if (!searchArea) return;
-    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${sensitivity}`;
+    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${scanRadiusKm},${sensitivity}`;
     if (lastScanRef.current === key) return;
     lastScanRef.current = key;
     runScan(searchArea);
-  }, [searchArea, sensitivity, runScan]);
+  }, [searchArea, scanRadiusKm, sensitivity, runScan]);
 
   const handlePick = useCallback(
     (latlng: LatLng) => {
@@ -468,11 +479,14 @@ export function MapPage() {
         minimized={minimized}
         candidates={candidates}
         scanning={scanning}
+        scanProgress={scanProgress}
         previewUrl={previewUrl}
         previewSize={previewSize}
         sensitivity={sensitivity}
+        radius={scanRadiusKm}
         zoom={mapRef.current?.getZoom() ?? 14}
         onSensitivityChange={setSensitivity}
+        onRadiusChange={setScanRadiusKm}
         onScan={runScan}
         onAddCandidate={handleAddCandidate}
         onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}

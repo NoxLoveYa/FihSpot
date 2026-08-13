@@ -1,327 +1,222 @@
 import { staticMapForScan } from './googleMaps';
 import type { LatLng } from './googleMaps';
-
-export function haversineKm(a: LatLng, b: LatLng): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(s));
-}
+import type { ChunkJob } from './waterWorker';
+import {
+  analyzeWater,
+  DARK_WATER,
+  haversineKm,
+  latLngToWorld,
+  regionsToDetectedWater,
+  selectWaterCandidates,
+} from './waterAnalysis';
+import type { DetectedWater, ScanSensitivity } from './waterAnalysis';
 
 // Dark-theme water color as rendered by the interactive map (#68bfd9 = hsl(194,60,63)).
 export const SCAN_WATER_COLOR = { hex: '#68bfd9', r: 104, g: 191, b: 217 };
-const DARK_WATER = { r: SCAN_WATER_COLOR.r, g: SCAN_WATER_COLOR.g, b: SCAN_WATER_COLOR.b };
 
-export function latLngToWorld(lat: number, lng: number, zoom: number): { x: number; y: number } {
-  const world = 256 * 2 ** zoom;
-  const x = ((lng + 180) / 360) * world;
-  const sinLat = Math.sin((lat * Math.PI) / 180);
-  const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * world;
-  return { x, y };
-}
+export { haversineKm };
+export { SCAN_SENSITIVITIES } from './waterAnalysis';
+export type { DetectedWater, ScanSensitivity };
 
-export function worldToLatLng(x: number, y: number, zoom: number): LatLng {
-  const world = 256 * 2 ** zoom;
-  const lng = (x / world) * 360 - 180;
-  const n = Math.PI - (2 * Math.PI * y) / world;
-  const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-  return { lat, lng };
-}
-
-export interface DetectedWater {
-  lat: number;
-  lng: number;
-  areaPx: number;
-  /** Pixel centroid in the analyzed image (for the preview overlay). */
-  px: number;
-  py: number;
-}
+export const RADIUS_OPTIONS_KM: number[] = [1, 5, 10, 30, 50, 100];
+export const DEFAULT_RADIUS_KM = 10;
 
 export interface ScanResult {
   candidates: DetectedWater[];
-  /** Blob URL of the exact styled static map that was analyzed. */
+  /** Blob URL of a static map covering the scanned area (for the overlay). */
   previewUrl: string;
-  /** Analyzed image dimensions (e.g. 1280×1280 with scale=2). */
+  /** Preview image dimensions (1280×1280 with scale=2). */
   width: number;
   height: number;
 }
 
-export type ScanSensitivity = 'sensitive' | 'default' | 'strict';
-
-export const SCAN_SENSITIVITIES: ScanSensitivity[] = ['sensitive', 'default', 'strict'];
-
-interface SensitivityFactors {
-  minSideFrac: number;
-  minAreaFrac: number;
+export interface ScanOptions {
+  radiusKm?: number;
+  onProgress?: (done: number, total: number) => void;
 }
 
-// Minimum pond size as a fraction of the analyzed image, expressed for a
-// reference zoom. Each zoom step out doubles the ground distance covered by a
-// pixel, so a pond of a given physical size covers 2× fewer pixels per side
-// and 4× fewer in area. The fractions are therefore divided by a zoom-derived
-// factor so the smallest detectable pond is roughly constant in physical terms
-// — at any zoom the scan stays usable without being bound to a km radius.
-const SCAN_SENSITIVITY_FACTORS: Record<ScanSensitivity, SensitivityFactors> = {
-  sensitive: { minSideFrac: 0.003, minAreaFrac: 0.00003 },
-  default: { minSideFrac: 0.005, minAreaFrac: 0.00006 },
-  strict: { minSideFrac: 0.01, minAreaFrac: 0.00018 },
+const CHUNK_SIZE = 640; // static map request size in px
+const SCALE = 2; // static map scale → decoded pixels are CHUNK_SIZE * SCALE
+const EARTH_CIRC_M = 40075016.686;
+const MAX_CHUNKS = 36;
+const OVERLAP = 0.15; // chunks overlap so ponds straddling a border are fully caught
+const MAX_CANDIDATES = 60;
+
+// Minimum pond diameter (meters) that each sensitivity level should catch, per
+// radius. Kept genuinely small so a scan finds real fishing ponds even at the
+// default sensitivity; they still grow a little with the radius because a
+// 20m puddle is meaningless inside a 100km region.
+const RADIUS_POND_SIZES_M: Record<number, Record<ScanSensitivity, number>> = {
+  1: { sensitive: 8, default: 20, strict: 50 },
+  5: { sensitive: 15, default: 40, strict: 120 },
+  10: { sensitive: 25, default: 60, strict: 200 },
+  30: { sensitive: 50, default: 120, strict: 400 },
+  50: { sensitive: 70, default: 180, strict: 600 },
+  100: { sensitive: 100, default: 250, strict: 800 },
 };
 
-const ZOOM_REF = 14;
-
-/**
- * Multipliers that keep the minimum detectable water size roughly constant in
- * physical (ground) terms: as the zoom decreases below the reference, the same
- * pond covers fewer pixels, so the thresholds must shrink accordingly.
- */
-export function zoomThresholdScale(zoom: number): { area: number; side: number } {
-  const steps = ZOOM_REF - zoom;
-  return { area: Math.pow(2, 2 * steps), side: Math.pow(2, steps) };
+function metersPerPx(lat: number, zoom: number): number {
+  return (EARTH_CIRC_M * Math.cos((lat * Math.PI) / 180)) / (256 * 2 ** zoom);
 }
 
 /**
- * Pixel thresholds used to consider a water body "a pond". The floors (40px
- * area, 4px thickness) cap how sensitive the scan can get, so zoomed way out a
- * scan still only picks up genuinely pond-sized blobs instead of pixel noise.
+ * The analysis zoom for a radius: the highest zoom at which the whole radius
+ * region fits within the chunk budget. The grid is then that many chunks per
+ * axis, so every radius is chunked uniformly and each chunk is analyzed at the
+ * best resolution a phone can afford — never tied to the live map zoom.
  */
-export function scanThresholds(sensitivity: ScanSensitivity, W: number, H: number, zoom = ZOOM_REF) {
-  const f = SCAN_SENSITIVITY_FACTORS[sensitivity] ?? SCAN_SENSITIVITY_FACTORS.default;
-  const scale = zoomThresholdScale(zoom);
+function chooseChunkZoom(lat: number, radiusKm: number): number {
+  const sideM = radiusKm * 2000;
+  for (let z = 19; z >= 10; z--) {
+    const stepM = CHUNK_SIZE * metersPerPx(lat, z) * (1 - OVERLAP);
+    const cols = Math.ceil(sideM / stepM);
+    if (cols * cols <= MAX_CHUNKS) return z;
+  }
+  return 10;
+}
+
+function planChunks(
+  center: LatLng,
+  radiusKm: number,
+  chunkZoom: number,
+): { center: LatLng; zoom: number }[] {
+  const sideM = radiusKm * 2000;
+  const cosLat = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
+  const stepM = CHUNK_SIZE * metersPerPx(center.lat, chunkZoom) * (1 - OVERLAP);
+  const cols = Math.max(1, Math.ceil(sideM / stepM));
+  const latStepDeg = stepM / 111320;
+  const lngStepDeg = stepM / (111320 * cosLat);
+  const neLat = center.lat + (sideM / 2) / 111320;
+  const swLng = center.lng - (sideM / 2) / (111320 * cosLat);
+
+  const chunks: { center: LatLng; zoom: number }[] = [];
+  for (let r = 0; r < cols; r++) {
+    for (let c = 0; c < cols; c++) {
+      chunks.push({
+        center: {
+          lat: Math.min(85, Math.max(-85, neLat - (r + 0.5) * latStepDeg)),
+          lng: swLng + (c + 0.5) * lngStepDeg,
+        },
+        zoom: chunkZoom,
+      });
+    }
+  }
+  return chunks;
+}
+
+/** Pixel thresholds from a minimum physical pond diameter at the chunk zoom. */
+function pondThresholds(minDiameterM: number, mpp: number) {
+  const rPx = minDiameterM / (2 * mpp); // pond radius in px
   return {
-    minArea: Math.max(40, Math.round((W * H * f.minAreaFrac) / scale.area)),
-    minSide: Math.max(4, Math.round((Math.min(W, H) * f.minSideFrac) / scale.side)),
+    minArea: Math.max(20, Math.round(Math.PI * rPx * rPx)),
+    minSide: Math.max(3, Math.round(rPx)),
   };
 }
 
-export interface WaterRegion {
-  cx: number;
-  cy: number;
-  areaPx: number;
-  touchesEdge: boolean;
-  fraction: number;
-  minDim: number;
+/** Square bounds of side 2·radius centered on the search point. */
+function regionBounds(center: LatLng, radiusKm: number) {
+  const cosLat = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
+  const dLat = (radiusKm * 1000) / 111320;
+  const dLng = (radiusKm * 1000) / (111320 * cosLat);
+  return {
+    swLat: center.lat - dLat,
+    swLng: center.lng - dLng,
+    neLat: center.lat + dLat,
+    neLng: center.lng + dLng,
+  };
 }
 
-export interface WaterAnalysis {
-  regions: WaterRegion[];
-  totalWaterPx: number;
+/** Center/zoom that fits the region into a CHUNK_SIZE×CHUNK_SIZE square. */
+function fitPreview(b: { swLat: number; swLng: number; neLat: number; neLng: number }) {
+  const lat = (b.swLat + b.neLat) / 2;
+  const lng = (b.swLng + b.neLng) / 2;
+  const cosLat = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+  const widthM = Math.abs(b.neLng - b.swLng) * 111320 * cosLat;
+  const heightM = Math.abs(b.neLat - b.swLat) * 111320;
+  const base = CHUNK_SIZE * (EARTH_CIRC_M / 256) * cosLat;
+  const zW = widthM > 0 ? Math.log2(base / widthM) : 21;
+  const zH = heightM > 0 ? Math.log2(base / heightM) : 21;
+  const zoom = Math.min(21, Math.max(3, Math.floor(Math.min(zW, zH))));
+  return { center: { lat, lng }, zoom };
 }
 
-/**
- * Pure analysis of a square RGBA pixel buffer. Finds water-colored regions
- * that are big enough to be ponds. Thin winding shapes (rivers) are rejected
- * by their poor area/perimeter thickness. Reported positions are snapped to a
- * real water pixel so they never land on land. Every region is kept, with
- * metadata the caller uses to apply the edge policy (ocean/sea vs ponds).
- */
-export function analyzeWater(
-  data: Uint8ClampedArray,
-  W: number,
-  H: number,
-  targets: ReadonlyArray<{ r: number; g: number; b: number }>,
-  tolerance: number,
-  minArea: number,
-  minSide: number,
-  opts?: { blueDominance?: boolean },
-): WaterAnalysis {
-  const isWater = new Uint8Array(W * H);
-  const useBlueDominance = opts?.blueDominance !== false;
-  for (let i = 0; i < W * H; i++) {
-    const o = i * 4;
-    const r = data[o];
-    const g = data[o + 1];
-    const b = data[o + 2];
-    // Close to any known water color (exact color matching).
-    const closeToWater = targets.some((t) => {
-      const dr = r - t.r;
-      const dg = g - t.g;
-      const db = b - t.b;
-      return Math.sqrt(dr * dr + dg * dg + db * db) <= tolerance;
-    });
-    // Blue-dominant fallback: catches deep/greenish water and any map theme.
-    // Land, parks and roads are never blue-dominant.
-    const blueDominant =
-      useBlueDominance && b >= r + 12 && b >= g - 10 && b >= 120;
-    if (closeToWater || blueDominant) isWater[i] = 1;
-  }
-
-  let totalWaterPx = 0;
-  const visited = new Uint8Array(W * H);
-  const found: WaterRegion[] = [];
-
-  for (let i = 0; i < W * H; i++) {
-    if (!isWater[i]) continue;
-    totalWaterPx += 1;
-    if (visited[i]) continue;
-
-    let area = 0;
-    let sumX = 0;
-    let sumY = 0;
-    let touchesEdge = false;
-    const regionPixels: number[] = [];
-    const stack = [i];
-    visited[i] = 1;
-
-    while (stack.length) {
-      const cur = stack.pop() as number;
-      const x = cur % W;
-      const y = (cur / W) | 0;
-      area += 1;
-      sumX += x;
-      sumY += y;
-      regionPixels.push(cur);
-      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) touchesEdge = true;
-
-      if (x + 1 < W && !visited[y * W + x + 1] && isWater[y * W + x + 1]) {
-        visited[y * W + x + 1] = 1;
-        stack.push(y * W + x + 1);
-      }
-      if (x - 1 >= 0 && !visited[y * W + x - 1] && isWater[y * W + x - 1]) {
-        visited[y * W + x - 1] = 1;
-        stack.push(y * W + x - 1);
-      }
-      if (y + 1 < H && !visited[(y + 1) * W + x] && isWater[(y + 1) * W + x]) {
-        visited[(y + 1) * W + x] = 1;
-        stack.push((y + 1) * W + x);
-      }
-      if (y - 1 >= 0 && !visited[(y - 1) * W + x] && isWater[(y - 1) * W + x]) {
-        visited[(y - 1) * W + x] = 1;
-        stack.push((y - 1) * W + x);
-      }
-    }
-
-    if (area < minArea) continue;
-
-    // Real thickness via area/perimeter: a thin winding river has a large
-    // perimeter for its area (so 2·area/perimeter is small), while a round
-    // pond of the same area has a large thickness. Rejects rivers far better
-    // than a bounding-box minSide check.
-    let edgePixels = 0;
-    for (const p of regionPixels) {
-      const x = p % W;
-      const y = (p / W) | 0;
-      let n = 0;
-      if (x > 0 && isWater[y * W + x - 1]) n += 1;
-      if (x < W - 1 && isWater[y * W + x + 1]) n += 1;
-      if (y > 0 && isWater[(y - 1) * W + x]) n += 1;
-      if (y < H - 1 && isWater[(y + 1) * W + x]) n += 1;
-      if (n < 4) edgePixels += 1;
-    }
-    const thickness = (2 * area) / Math.max(1, edgePixels);
-    if (thickness < minSide) continue;
-
-    // The mean pixel position can fall in the concave gap next to a
-    // kidney-shaped or winding water body. Snap it to the actual water pixel
-    // closest to the centroid so the marker always lands on water.
-    const cx0 = sumX / area;
-    const cy0 = sumY / area;
-    let bestIdx = regionPixels[0];
-    let bestDist = Infinity;
-    for (const p of regionPixels) {
-      const x = p % W;
-      const y = (p / W) | 0;
-      const d = (x - cx0) * (x - cx0) + (y - cy0) * (y - cy0);
-      if (d < bestDist) {
-        bestDist = d;
-        bestIdx = p;
-      }
-    }
-
-    found.push({
-      cx: bestIdx % W,
-      cy: (bestIdx / W) | 0,
-      areaPx: area,
-      touchesEdge,
-      fraction: area / (W * H),
-      minDim: Math.round(thickness),
-    });
-  }
-
-  return { regions: found, totalWaterPx };
-}
-
-/**
- * Applies the pond-selection policy to a set of detected regions: keeps
- * enclosed ponds plus small edge-touching bodies, falls back to the biggest
- * body when the frame is mostly water, merges close centroids, sorts by size
- * and caps the result.
- */
-function selectWaterCandidates(
-  regions: WaterRegion[],
-  totalWaterPx: number,
-  W: number,
-  H: number,
-): WaterRegion[] {
-  let chosen = regions.filter((r) => !r.touchesEdge || r.areaPx < W * H * 0.08);
-
-  if (chosen.length === 0 && totalWaterPx > W * H * 0.5 && regions.length > 0) {
-    const biggest = regions.reduce((a, b) => (b.areaPx > a.areaPx ? b : a), regions[0]);
-    chosen = [biggest];
-  }
-
-  const merged: typeof chosen = [];
-  for (const r of chosen) {
-    const existing = merged.find((m) => Math.hypot(m.cx - r.cx, m.cy - r.cy) < 14);
-    if (existing) {
-      if (r.areaPx > existing.areaPx) {
-        existing.cx = r.cx;
-        existing.cy = r.cy;
-        existing.areaPx = r.areaPx;
-      }
-    } else {
-      merged.push(r);
-    }
-  }
-
-  merged.sort((a, b) => b.areaPx - a.areaPx);
-  return merged.slice(0, 12);
-}
-
-async function regionsFromImageData(
-  img: ImageData,
-  sensitivity: ScanSensitivity,
-  zoom: number,
-): Promise<{ regions: WaterRegion[]; totalWaterPx: number }> {
-  const W = img.width;
-  const H = img.height;
-  // Exact color match — no tolerance, so green/near-water pixels are rejected.
-  const tolerance = 0;
-  const { minArea, minSide } = scanThresholds(sensitivity, W, H, zoom);
-  return analyzeWater(img.data, W, H, [DARK_WATER], tolerance, minArea, minSide, {
-    blueDominance: false,
-  });
-}
-
-/**
- * Fetches a static map of the search area whose water is recolored to exactly
- * the dark-theme water color (#93dbee), then detects ponds of that exact color.
- */
-export async function scanForWater(
-  area: { lat: number; lng: number },
-  sensitivity: ScanSensitivity = 'default',
-  opts?: { mapZoom?: number },
-): Promise<ScanResult> {
-  const size = 640;
-  // The static map is rendered at exactly the live map's zoom so the preview
-  // matches the map view. The zone scanned is the map viewport around the
-  // search center, at the current zoom.
-  const zoom = Math.min(21, Math.max(3, Math.round(opts?.mapZoom ?? 15)));
-  const url = staticMapForScan({ lat: area.lat, lng: area.lng }, zoom, size);
+async function fetchPreview(preview: { center: LatLng; zoom: number }) {
+  const url = staticMapForScan(preview.center, preview.zoom, CHUNK_SIZE);
   if (!url) throw new Error('Map service unavailable');
-
-  let res: Response;
-  try {
-    res = await fetch(url);
-  } catch {
-    throw new Error('Could not reach the map service');
-  }
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-
   const blob = await res.blob();
-  // Kept alive and returned as `previewUrl` — the caller revokes it.
+  return { previewUrl: URL.createObjectURL(blob), width: CHUNK_SIZE * SCALE, height: CHUNK_SIZE * SCALE };
+}
+
+function supportsWorkerPath(): boolean {
+  return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
+}
+
+/** Runs chunk jobs across a pool of workers, one image at a time per worker. */
+async function runChunkJobs(
+  jobs: ChunkJob[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<DetectedWater[][]> {
+  const results: (DetectedWater[] | undefined)[] = new Array(jobs.length);
+  if (jobs.length === 0) return [];
+  const cores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4;
+  const poolSize = Math.max(1, Math.min(6, cores));
+
+  await new Promise<void>((resolve) => {
+    let next = 0;
+    let done = 0;
+    let settled = 0;
+    const workers: Worker[] = [];
+
+    const finish = () => {
+      settled += 1;
+      if (settled === workers.length) resolve();
+    };
+
+    for (let i = 0; i < poolSize; i++) {
+      const worker = new Worker(new URL('./waterWorker', import.meta.url), { type: 'module' });
+      workers.push(worker);
+      worker.onmessage = (e: MessageEvent) => {
+        const r = e.data as { id: number; candidates: DetectedWater[] };
+        results[r.id] = r.candidates;
+        done += 1;
+        onProgress?.(done, jobs.length);
+        if (next < jobs.length) {
+          worker.postMessage(jobs[next++]);
+        } else {
+          worker.terminate();
+          finish();
+        }
+      };
+      worker.onerror = () => {
+        done += 1;
+        onProgress?.(done, jobs.length);
+        worker.terminate();
+        finish();
+      };
+    }
+
+    // Assign one job to each worker; spare workers are closed immediately so
+    // the pool settles even when there are fewer jobs than workers.
+    for (let i = 0; i < poolSize; i++) {
+      if (next < jobs.length) {
+        workers[i].postMessage(jobs[next++]);
+      } else {
+        workers[i].terminate();
+        finish();
+      }
+    }
+  });
+
+  return results.map((r) => r ?? []);
+}
+
+/** Fallback when Web Workers / OffscreenCanvas are unavailable: sequential on the main thread. */
+async function analyzeChunkOnMain(job: ChunkJob): Promise<DetectedWater[]> {
+  const res = await fetch(job.url);
+  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+  const blob = await res.blob();
   const objectUrl = URL.createObjectURL(blob);
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -337,26 +232,98 @@ export async function scanForWater(
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) {
-    URL.revokeObjectURL(objectUrl);
-    throw new Error('Canvas unavailable');
-  }
+  URL.revokeObjectURL(objectUrl);
+  if (!ctx) throw new Error('Canvas unavailable');
   ctx.drawImage(image, 0, 0);
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity, zoom);
-  const chosen = selectWaterCandidates(regions, totalWaterPx, img.width, img.height);
+  const { regions } = analyzeWater(img.data, img.width, img.height, [DARK_WATER], 0, job.minArea, job.minSide, {
+    blueDominance: false,
+  });
+  const chosen = selectWaterCandidates(regions, img.width, img.height);
+  return regionsToDetectedWater(chosen, img.width, img.height, job.center, job.zoom, job.size);
+}
 
-  // The image is requested as `size` but may come back at a higher resolution
-  // (scale=2 → 2× pixels). World-coordinate offsets must be scaled down by the
-  // image/request pixel ratio, otherwise points land twice as far from center.
-  const worldPerImagePx = size / img.width;
-  const worldCenter = latLngToWorld(area.lat, area.lng, zoom);
-  const candidates = chosen.map((r) => {
-    const wx = worldCenter.x + (r.cx - img.width / 2) * worldPerImagePx;
-    const wy = worldCenter.y + (r.cy - img.height / 2) * worldPerImagePx;
-    return { ...worldToLatLng(wx, wy, zoom), areaPx: r.areaPx, px: r.cx, py: r.cy };
+/** Dedupes candidates detected in overlapping chunks (same pond twice). */
+function mergeCandidates(perChunk: DetectedWater[][], dedupeKm: number): DetectedWater[] {
+  const all = perChunk.flat().sort((a, b) => b.areaPx - a.areaPx);
+  const kept: DetectedWater[] = [];
+  for (const c of all) {
+    if (kept.some((k) => haversineKm(k, c) < dedupeKm)) continue;
+    kept.push(c);
+    if (kept.length >= MAX_CANDIDATES) break;
+  }
+  return kept;
+}
+
+/**
+ * Scans a circular area of `radiusKm` around the search center. The area is
+ * chunked into a grid, each chunk fetched as a static map at the analysis zoom
+ * and analyzed in parallel off the main thread, then the detections are merged
+ * and clipped to the circle. The analysis zoom and the small/medium/large pond
+ * sizes are chosen per radius so every option is chunked the same way and ends
+ * up at a comparable, meaningful resolution — never tied to the live map zoom.
+ */
+export async function scanForWater(
+  area: { lat: number; lng: number },
+  sensitivity: ScanSensitivity = 'default',
+  opts?: ScanOptions,
+): Promise<ScanResult> {
+  const radiusKm = opts?.radiusKm ?? DEFAULT_RADIUS_KM;
+
+  const chunkZoom = chooseChunkZoom(area.lat, radiusKm);
+  const chunks = planChunks(area, radiusKm, chunkZoom);
+  const mpp = metersPerPx(area.lat, chunkZoom);
+  const minDiameterM = RADIUS_POND_SIZES_M[radiusKm]?.[sensitivity] ?? RADIUS_POND_SIZES_M[DEFAULT_RADIUS_KM]?.default ?? 250;
+  const { minArea, minSide } = pondThresholds(minDiameterM, mpp);
+
+  const bounds = regionBounds(area, radiusKm);
+  const preview = fitPreview(bounds);
+  const previewPromise = fetchPreview(preview);
+
+  const jobs: ChunkJob[] = chunks.map((ch, id) => {
+    const url = staticMapForScan(ch.center, ch.zoom, CHUNK_SIZE);
+    if (!url) throw new Error('Map service unavailable');
+    return { id, url, center: ch.center, zoom: ch.zoom, size: CHUNK_SIZE, minArea, minSide };
   });
 
-  return { candidates, previewUrl: objectUrl, width: img.width, height: img.height };
+  let perChunk: DetectedWater[][];
+  if (supportsWorkerPath()) {
+    perChunk = await runChunkJobs(jobs, opts?.onProgress);
+  } else {
+    perChunk = [];
+    for (let i = 0; i < jobs.length; i++) {
+      try {
+        perChunk.push(await analyzeChunkOnMain(jobs[i]));
+      } catch {
+        perChunk.push([]);
+      }
+      opts?.onProgress?.(i + 1, jobs.length);
+    }
+  }
+
+  const { previewUrl, width, height } = await previewPromise;
+
+  // The dedupe distance must follow the analysis zoom: at a low zoom (huge
+  // radius) one chunk pixel covers hundreds of meters, so chunk duplicates are
+  // further apart than at a high zoom.
+  const dedupeKm = Math.max(0.02, (4 * mpp) / 1000);
+
+  // Clip to the circular radius, then place each candidate on the overview
+  // preview so the dots overlay correctly even though they were found on the
+  // zoomed-in chunks.
+  const worldCenter = latLngToWorld(preview.center.lat, preview.center.lng, preview.zoom);
+  const worldPerImagePx = CHUNK_SIZE / width;
+  const candidates = mergeCandidates(perChunk, dedupeKm)
+    .filter((c) => haversineKm(c, area) <= radiusKm)
+    .map((c) => {
+      const p = latLngToWorld(c.lat, c.lng, preview.zoom);
+      return {
+        ...c,
+        px: (p.x - worldCenter.x) / worldPerImagePx + width / 2,
+        py: (p.y - worldCenter.y) / worldPerImagePx + height / 2,
+      };
+    });
+
+  return { candidates, previewUrl, width, height };
 }
