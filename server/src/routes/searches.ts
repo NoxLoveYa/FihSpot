@@ -2,33 +2,28 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
-import { findPoisInRadius } from '../services/search';
+import { findPoisInBounds, viewportBounds } from '../services/search';
 
 const router = Router();
 
-function validateSearchInput(body: {
-  name?: unknown;
-  lat?: unknown;
-  lng?: unknown;
-  radiusKm?: unknown;
-}) {
+function validateSearchInput(body: { name?: unknown; lat?: unknown; lng?: unknown; zoom?: unknown }) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const nLat = Number(body.lat);
   const nLng = Number(body.lng);
-  const nRadius = Number(body.radiusKm);
+  const nZoom = body.zoom === undefined ? 14 : Number(body.zoom);
 
   if (!Number.isFinite(nLat) || nLat < -90 || nLat > 90)
     throw new ApiError(400, 'Invalid latitude', 'INVALID_LAT');
   if (!Number.isFinite(nLng) || nLng < -180 || nLng > 180)
     throw new ApiError(400, 'Invalid longitude', 'INVALID_LNG');
-  if (!Number.isFinite(nRadius) || nRadius <= 0 || nRadius > 500)
-    throw new ApiError(400, 'Invalid radius', 'INVALID_RADIUS');
+  if (!Number.isInteger(nZoom) || nZoom < 1 || nZoom > 21)
+    throw new ApiError(400, 'Invalid zoom', 'INVALID_ZOOM');
 
   return {
     name: name || `Search at ${nLat.toFixed(3)}, ${nLng.toFixed(3)}`,
     lat: nLat,
     lng: nLng,
-    radiusKm: nRadius,
+    zoom: nZoom,
   };
 }
 
@@ -51,10 +46,12 @@ router.get('/:id', requireAuth, async (req, res, next) => {
     if (search.userId !== req.user!.id)
       throw new ApiError(403, 'Action not authorized', 'UNAUTHORIZED');
 
-    const pois = await findPoisInRadius({
-      lat: search.lat,
-      lng: search.lng,
-      radiusKm: search.radiusKm,
+    const bounds = viewportBounds(search.lat, search.lng, search.zoom);
+    const pois = await findPoisInBounds({
+      swLat: bounds.swLat,
+      swLng: bounds.swLng,
+      neLat: bounds.neLat,
+      neLng: bounds.neLng,
       userId: req.user!.id,
       lastComment: true,
     });

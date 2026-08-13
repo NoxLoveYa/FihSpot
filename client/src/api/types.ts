@@ -29,14 +29,9 @@ export interface Search {
   name: string;
   lat: number;
   lng: number;
-  radiusKm: number;
+  zoom: number;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface SearchDetail {
-  search: Search;
-  pois: PoISummary[];
 }
 
 export interface Comment {

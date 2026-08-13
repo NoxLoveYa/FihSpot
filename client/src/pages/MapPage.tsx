@@ -25,10 +25,6 @@ import { FullScreenLoader, Spinner } from '../components/Spinner';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { getPreviousPath } from '../navigation';
 
-function zoomForRadius(radiusKm: number): number {
-  return Math.max(8, Math.min(16, Math.round(14 - Math.log2(radiusKm))));
-}
-
 export function MapPage() {
   const { t } = useTranslation();
   const { loading } = useAuth();
@@ -143,27 +139,52 @@ export function MapPage() {
     loadBounds({ swLat: -90, swLng: -180, neLat: 90, neLng: 180 });
   }, [loadBounds]);
 
-  const runSearch = useCallback(
-    async (area: { lat: number; lng: number; radiusKm: number }) => {
-      setSearchLoading(true);
-      try {
-        const { pois } = await api.listPois(undefined, { near: area, lastComment: true });
-        setSearchPois(pois);
-      } catch (e) {
-        toast(t('search.loadError'), 'error');
-        setSearchPois([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [toast, t],
-  );
+  // The search zone is the current map viewport: results are loaded for the
+  // visible bounds, so panning/zooming live-updates the zone being searched.
+  const loadSearchBounds = useCallback(async () => {
+    const b = mapRef.current?.getBounds();
+    if (!b) return;
+    const ne = b.getNorthEast();
+    const sw = b.getSouthWest();
+    setSearchLoading(true);
+    try {
+      const { pois } = await api.listPois(
+        { swLat: sw.lat(), swLng: sw.lng(), neLat: ne.lat(), neLng: ne.lng() },
+        { lastComment: true },
+      );
+      setSearchPois(pois);
+    } catch (e) {
+      toast(t('search.loadError'), 'error');
+      setSearchPois([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [toast, t]);
+
+  // When a saved search is opened the map first moves to its saved spot; the
+  // bounds callback below picks up the new viewport once it settles, so skip
+  // loading here with the stale pre-move bounds.
+  const skipNextSearchLoadRef = useRef(false);
 
   useEffect(() => {
-    if (searchArea) {
-      runSearch(searchArea);
+    if (!searchArea) return;
+    if (skipNextSearchLoadRef.current) {
+      skipNextSearchLoadRef.current = false;
+      return;
     }
-  }, [searchArea, runSearch]);
+    void loadSearchBounds();
+  }, [searchArea, loadSearchBounds]);
+
+  const handleBoundsChange = useCallback(
+    (bounds: Bounds) => {
+      if (searchArea) {
+        void loadSearchBounds();
+      } else {
+        loadBounds(bounds);
+      }
+    },
+    [searchArea, loadBounds, loadSearchBounds],
+  );
 
   const handleClearSearch = useCallback(() => {
     clearSearch();
@@ -173,7 +194,7 @@ export function MapPage() {
   const handleCloseDrawer = useCallback(() => setSelectedId(null), []);
 
   const runScan = useCallback(
-    async (area: { lat: number; lng: number; radiusKm: number }) => {
+    async (area: { lat: number; lng: number }) => {
       if (!mapRef.current) return;
       setScanning(true);
       try {
@@ -198,7 +219,7 @@ export function MapPage() {
 
   useEffect(() => {
     if (!searchArea) return;
-    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${searchArea.radiusKm},${sensitivity}`;
+    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${sensitivity}`;
     if (lastScanRef.current === key) return;
     lastScanRef.current = key;
     runScan(searchArea);
@@ -211,7 +232,7 @@ export function MapPage() {
         setDraftPosition(null);
         setSearchPosition(null);
         setActiveSearchId(null);
-        setSearchArea({ lat: latlng.lat, lng: latlng.lng, radiusKm: 5 });
+        setSearchArea({ lat: latlng.lat, lng: latlng.lng });
         return;
       }
       setDraftPosition(latlng);
@@ -331,32 +352,24 @@ export function MapPage() {
     }
   }, [toast, t]);
 
-  const handleOpenSaved = useCallback(
-    async (search: Search) => {
-      setSavedOpen(false);
-      setSearchMode(true);
-      setSelectedId(null);
-      setDraftPosition(null);
-      setSearchPosition(null);
-      setActiveSearchId(search.id);
-      setCandidates([]);
-      lastScanRef.current = null;
-      setSearchArea({ lat: search.lat, lng: search.lng, radiusKm: search.radiusKm });
-      mapRef.current?.panTo({ lat: search.lat, lng: search.lng });
-      mapRef.current?.setZoom(zoomForRadius(search.radiusKm));
-      setSearchLoading(true);
-      try {
-        const detail = await api.getSearch(search.id);
-        setSearchPois(detail.pois);
-      } catch (e) {
-        toast(t('search.loadError'), 'error');
-        setSearchPois([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [toast, t],
-  );
+  const handleOpenSaved = useCallback((search: Search) => {
+    setSavedOpen(false);
+    setSearchMode(true);
+    setSelectedId(null);
+    setDraftPosition(null);
+    setSearchPosition(null);
+    setActiveSearchId(search.id);
+    setCandidates([]);
+    setSearchPois([]);
+    lastScanRef.current = null;
+    // The zone of a saved search is its saved viewport (center + zoom). Skip
+    // the auto bounds-load on searchArea change; the map move below triggers
+    // an idle event that loads the results for the restored viewport.
+    skipNextSearchLoadRef.current = true;
+    setSearchArea({ lat: search.lat, lng: search.lng });
+    mapRef.current?.panTo({ lat: search.lat, lng: search.lng });
+    mapRef.current?.setZoom(search.zoom);
+  }, []);
 
   const handleDeleteSaved = useCallback(
     async (id: string) => {
@@ -375,10 +388,6 @@ export function MapPage() {
   const handleToggleSeen = useCallback((poiId: string, seen: boolean) => {
     setSearchPois((prev) => prev.map((p) => (p.id === poiId ? { ...p, seen } : p)));
     setPois((prev) => prev.map((p) => (p.id === poiId ? { ...p, seen } : p)));
-  }, []);
-
-  const handleRadiusChange = useCallback((radiusKm: number) => {
-    setSearchArea((prev) => (prev ? { ...prev, radiusKm } : prev));
   }, []);
 
   const handleAddCandidate = useCallback((latlng: LatLng) => {
@@ -407,7 +416,7 @@ export function MapPage() {
         searchArea={searchArea}
         candidates={candidates}
         onMapReady={handleMapReady}
-        onBoundsChange={loadBounds}
+        onBoundsChange={handleBoundsChange}
         onSelect={(id) => {
           setSelectedId(id);
           setDraftPosition(null);
@@ -462,11 +471,11 @@ export function MapPage() {
         previewUrl={previewUrl}
         previewSize={previewSize}
         sensitivity={sensitivity}
+        zoom={mapRef.current?.getZoom() ?? 14}
         onSensitivityChange={setSensitivity}
         onScan={runScan}
         onAddCandidate={handleAddCandidate}
         onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
-        onRadiusChange={handleRadiusChange}
         onClose={handleClearSearch}
         onMinimize={() => setMinimized(true)}
         onSelect={(id) => setSelectedId(id)}

@@ -11,7 +11,6 @@ import type {
   PoISummary,
   Role,
   Search,
-  SearchDetail,
   User,
   UserContent,
 } from './types';
@@ -138,18 +137,12 @@ export const api = {
   },
 
   // PoIs
-  listPois: (
-    bounds?: Bounds,
-    opts?: { lastComment?: boolean; near?: { lat: number; lng: number; radiusKm: number } },
-  ) => {
+  listPois: (bounds?: Bounds, opts?: { lastComment?: boolean }) => {
     const params: string[] = [];
     if (bounds) {
       params.push(`swLat=${bounds.swLat}&swLng=${bounds.swLng}&neLat=${bounds.neLat}&neLng=${bounds.neLng}`);
     }
     if (opts?.lastComment) params.push('lastComment=1');
-    if (opts?.near) {
-      params.push(`lat=${opts.near.lat}&lng=${opts.near.lng}&radius=${opts.near.radiusKm}`);
-    }
     const qs = params.length ? `?${params.join('&')}` : '';
     return request<{ pois: PoISummary[] }>(`/pois${qs}`);
   },
@@ -165,10 +158,9 @@ export const api = {
   unmarkSeen: (poiId: string) => request<{ seen: boolean }>(`/pois/${poiId}/seen`, { method: 'DELETE' }),
 
   // Saved searches
-  createSearch: (data: { name?: string; lat: number; lng: number; radiusKm: number }) =>
+  createSearch: (data: { name?: string; lat: number; lng: number; zoom: number }) =>
     request<{ search: Search }>('/searches', { method: 'POST', body: JSON.stringify(data) }),
   listSearches: () => request<{ searches: Search[] }>('/searches'),
-  getSearch: (id: string) => request<SearchDetail>(`/searches/${id}`),
   updateSearch: (id: string, data: { name: string }) =>
     request<{ search: Search }>(`/searches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSearch: (id: string) => request<void>(`/searches/${id}`, { method: 'DELETE' }),

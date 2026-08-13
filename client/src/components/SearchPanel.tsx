@@ -29,15 +29,13 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Skeleton, Spinner } from './Spinner';
 import { Button } from './Button';
 
-const RADII_KM = [1, 2, 5, 10, 20];
-
 function formatDistance(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m`;
   return `${km.toFixed(1)} km`;
 }
 
 interface SearchPanelProps {
-  position: { lat: number; lng: number; radiusKm: number } | null;
+  position: { lat: number; lng: number } | null;
   pois: PoISummary[];
   loading: boolean;
   activeSearchId: string | null;
@@ -47,11 +45,11 @@ interface SearchPanelProps {
   previewUrl: string | null;
   previewSize: { width: number; height: number } | null;
   sensitivity: ScanSensitivity;
+  zoom: number;
   onSensitivityChange: (sensitivity: ScanSensitivity) => void;
-  onScan: (area: { lat: number; lng: number; radiusKm: number }) => void;
+  onScan: (area: { lat: number; lng: number }) => void;
   onAddCandidate: (latlng: LatLng) => void;
   onCenter: (latlng: LatLng) => void;
-  onRadiusChange: (radiusKm: number) => void;
   onClose: () => void;
   onMinimize: () => void;
   onSelect: (id: string) => void;
@@ -72,11 +70,11 @@ export function SearchPanel({
   previewUrl,
   previewSize,
   sensitivity,
+  zoom,
   onSensitivityChange,
   onScan,
   onAddCandidate,
   onCenter,
-  onRadiusChange,
   onClose,
   onMinimize,
   onSelect,
@@ -126,14 +124,6 @@ export function SearchPanel({
     };
   }, [pois, loading, minCardHeight]);
 
-  const radiusLabels: Record<number, string> = {
-    1: '1',
-    2: '2',
-    5: '5',
-    10: '10',
-    20: '20',
-  };
-
   async function saveSearch(e: FormEvent) {
     e.preventDefault();
     if (!position) return;
@@ -143,7 +133,7 @@ export function SearchPanel({
         name: name.trim() || undefined,
         lat: position.lat,
         lng: position.lng,
-        radiusKm: position.radiusKm,
+        zoom,
       });
       setSavingName(false);
       setName('');
@@ -244,27 +234,6 @@ export function SearchPanel({
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4 safe-bottom">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t('search.radius')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {RADII_KM.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => onRadiusChange(r)}
-                    className={`min-h-[36px] rounded-full px-4 text-sm font-semibold transition-colors ${
-                      position.radiusKm === r
-                        ? 'bg-brand-600 text-white shadow-float'
-                        : 'glass text-slate-600 hover:brightness-105 dark:text-slate-200'
-                    }`}
-                  >
-                    {radiusLabels[r]} km
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t('scan.size')}
@@ -420,7 +389,7 @@ export function SearchPanel({
                     </form>
                   ) : (
                     <p className="min-w-0 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      {t('search.savedBadge')} · {formatDistance(position.radiusKm)}
+                      {t('search.savedBadge')}
                     </p>
                   )}
                   <div className="flex shrink-0 items-center gap-1">

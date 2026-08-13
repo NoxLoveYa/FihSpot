@@ -30,7 +30,7 @@ interface GoogleMapViewProps {
   draftPosition: LatLng | null;
   userPosition: LatLng | null;
   searchPosition: LatLng | null;
-  searchArea: { lat: number; lng: number; radiusKm: number } | null;
+  searchArea: { lat: number; lng: number } | null;
   candidates: LatLng[];
   onMapReady: (map: google.maps.Map) => void;
   onBoundsChange: (bounds: Bounds) => void;
@@ -270,24 +270,6 @@ export function GoogleMapView({
       });
     };
   }, [map, pois, selectedId, draftPosition, userPosition, searchPosition, searchArea, candidates]);
-
-  useEffect(() => {
-    if (!map || !searchArea) return;
-    const circle = new window.google.maps.Circle({
-      map,
-      center: { lat: searchArea.lat, lng: searchArea.lng },
-      radius: searchArea.radiusKm * 1000,
-      strokeColor: '#6366f1',
-      strokeOpacity: 0.7,
-      strokeWeight: 2,
-      fillColor: '#6366f1',
-      fillOpacity: 0.08,
-      clickable: false,
-    });
-    return () => {
-      circle.setMap(null);
-    };
-  }, [map, searchArea]);
 
   return (
     <div className="relative h-full w-full">

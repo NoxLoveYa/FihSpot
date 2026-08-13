@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Search" DROP COLUMN "radiusKm",
+ADD COLUMN     "zoom" INTEGER NOT NULL DEFAULT 14;

@@ -17,11 +17,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatRadius(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} m`;
-  return `${km.toFixed(1)} km`;
-}
-
 interface SavedSearchesPanelProps {
   open: boolean;
   searches: Search[];
@@ -99,9 +94,7 @@ export function SavedSearchesPanel({
                         <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
                         {search.lat.toFixed(4)}, {search.lng.toFixed(4)}
                       </p>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {t('saved.radius')} {formatRadius(search.radiusKm)} · {formatDate(search.updatedAt)}
-                      </p>
+                      <p className="mt-0.5 text-xs text-slate-400">{formatDate(search.updatedAt)}</p>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
                       <button

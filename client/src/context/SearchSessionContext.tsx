@@ -6,7 +6,6 @@ import type { DetectedWater } from '../lib/waterScan';
 interface SearchArea {
   lat: number;
   lng: number;
-  radiusKm: number;
 }
 
 interface PreviewInfo {

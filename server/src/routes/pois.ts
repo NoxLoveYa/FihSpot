@@ -4,7 +4,7 @@ import { requireAuth, optionalAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { deletePhotoWithFile, deletePoiWithFiles } from '../services/content';
-import { findPoisInRadius } from '../services/search';
+import { findPoisInBounds } from '../services/search';
 import { config } from '../config';
 
 const router = Router();
@@ -31,65 +31,29 @@ function validateCoords(lat: unknown, lng: unknown) {
 
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { swLat, swLng, neLat, neLng, lastComment, lat, lng, radius } = req.query as Record<
-      string,
-      string | undefined
-    >;
+    const { swLat, swLng, neLat, neLng, lastComment } = req.query as Record<string, string | undefined>;
     const userId = req.user?.id;
 
-    if (lat !== undefined && lng !== undefined && radius !== undefined) {
-      const coords = validateCoords(lat, lng);
-      const radiusKm = Number(radius);
-      if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 500)
-        throw new ApiError(400, 'Invalid radius', 'INVALID_RADIUS');
+    const pois =
+      swLat && swLng && neLat && neLng
+        ? await findPoisInBounds({
+            swLat: Number(swLat),
+            swLng: Number(swLng),
+            neLat: Number(neLat),
+            neLng: Number(neLng),
+            userId,
+            lastComment: lastComment === '1',
+          })
+        : await findPoisInBounds({
+            swLat: -90,
+            swLng: -180,
+            neLat: 90,
+            neLng: 180,
+            userId,
+            lastComment: lastComment === '1',
+          });
 
-      const pois = await findPoisInRadius({
-        lat: coords.lat,
-        lng: coords.lng,
-        radiusKm,
-        userId,
-        lastComment: lastComment === '1',
-      });
-      res.json({ pois });
-      return;
-    }
-
-    const pois = await prisma.poI.findMany({
-      where: {
-        ...(config.demoEnabled ? {} : { demo: false }),
-        AND: swLat && swLng && neLat && neLng
-          ? {
-              lat: { gte: Number(swLat), lte: Number(neLat) },
-              lng: { gte: Number(swLng), lte: Number(neLng) },
-            }
-          : undefined,
-      },
-      include: {
-        createdBy: { select: { id: true, name: true, avatarUrl: true } },
-        _count: { select: { comments: true, photos: true } },
-        ...(lastComment === '1'
-          ? {
-              comments: {
-                take: 1,
-                orderBy: { createdAt: 'desc' as const },
-                include: { user: { select: { id: true, name: true, avatarUrl: true } } },
-              },
-            }
-          : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const seenIds = new Set<string>();
-    if (userId) {
-      const seen = await prisma.seenPoi.findMany({
-        where: { userId, poiId: { in: pois.map((p) => p.id) } },
-        select: { poiId: true },
-      });
-      seen.forEach((s) => seenIds.add(s.poiId));
-    }
-
-    res.json({ pois: pois.map((p) => ({ ...p, seen: seenIds.has(p.id) })) });
+    res.json({ pois });
   } catch (e) {
     next(e);
   }

@@ -1,8 +1,6 @@
 import { staticMapForScan } from './googleMaps';
 import type { LatLng } from './googleMaps';
 
-const EARTH_CIRC_M = 40075016.686;
-
 export function haversineKm(a: LatLng, b: LatLng): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
@@ -16,12 +14,6 @@ export function haversineKm(a: LatLng, b: LatLng): number {
 // Dark-theme water color as rendered by the interactive map (#68bfd9 = hsl(194,60,63)).
 export const SCAN_WATER_COLOR = { hex: '#68bfd9', r: 104, g: 191, b: 217 };
 const DARK_WATER = { r: SCAN_WATER_COLOR.r, g: SCAN_WATER_COLOR.g, b: SCAN_WATER_COLOR.b };
-
-export function zoomForRadius(lat: number, radiusKm: number, size: number): number {
-  const metersPerPx = (2 * radiusKm * 1000) / (size * 0.85);
-  const zoom = Math.log2((EARTH_CIRC_M * Math.cos((lat * Math.PI) / 180)) / (256 * metersPerPx));
-  return Math.round(Math.min(18, Math.max(3, zoom)));
-}
 
 export function latLngToWorld(lat: number, lng: number, zoom: number): { x: number; y: number } {
   const world = 256 * 2 ** zoom;
@@ -66,26 +58,41 @@ interface SensitivityFactors {
   minAreaFrac: number;
 }
 
-// Minimum pond size as a fraction of the analyzed image. Because it is
-// expressed in pixels, it is automatically affected by the zoom level: zoomed
-// in, a small pond covers many pixels and is detected; zoomed out, the same
-// physical size shrinks below the threshold and is ignored.
+// Minimum pond size as a fraction of the analyzed image, expressed for a
+// reference zoom. Each zoom step out doubles the ground distance covered by a
+// pixel, so a pond of a given physical size covers 2× fewer pixels per side
+// and 4× fewer in area. The fractions are therefore divided by a zoom-derived
+// factor so the smallest detectable pond is roughly constant in physical terms
+// — at any zoom the scan stays usable without being bound to a km radius.
 const SCAN_SENSITIVITY_FACTORS: Record<ScanSensitivity, SensitivityFactors> = {
-  sensitive: { minSideFrac: 0.006, minAreaFrac: 0.00008 },
-  default: { minSideFrac: 0.01, minAreaFrac: 0.0002 },
-  strict: { minSideFrac: 0.018, minAreaFrac: 0.0005 },
+  sensitive: { minSideFrac: 0.003, minAreaFrac: 0.00003 },
+  default: { minSideFrac: 0.005, minAreaFrac: 0.00006 },
+  strict: { minSideFrac: 0.01, minAreaFrac: 0.00018 },
 };
 
+const ZOOM_REF = 14;
+
 /**
- * Pixel thresholds used to consider a water body "a pond", constant in on-screen
- * pixels (so they scale with the map zoom). Larger values only accept bigger
- * water areas (rivers stay filtered by minSide).
+ * Multipliers that keep the minimum detectable water size roughly constant in
+ * physical (ground) terms: as the zoom decreases below the reference, the same
+ * pond covers fewer pixels, so the thresholds must shrink accordingly.
  */
-export function scanThresholds(sensitivity: ScanSensitivity, W: number, H: number) {
+export function zoomThresholdScale(zoom: number): { area: number; side: number } {
+  const steps = ZOOM_REF - zoom;
+  return { area: Math.pow(2, 2 * steps), side: Math.pow(2, steps) };
+}
+
+/**
+ * Pixel thresholds used to consider a water body "a pond". The floors (40px
+ * area, 4px thickness) cap how sensitive the scan can get, so zoomed way out a
+ * scan still only picks up genuinely pond-sized blobs instead of pixel noise.
+ */
+export function scanThresholds(sensitivity: ScanSensitivity, W: number, H: number, zoom = ZOOM_REF) {
   const f = SCAN_SENSITIVITY_FACTORS[sensitivity] ?? SCAN_SENSITIVITY_FACTORS.default;
+  const scale = zoomThresholdScale(zoom);
   return {
-    minArea: Math.max(40, Math.round(W * H * f.minAreaFrac)),
-    minSide: Math.max(4, Math.round(Math.min(W, H) * f.minSideFrac)),
+    minArea: Math.max(40, Math.round((W * H * f.minAreaFrac) / scale.area)),
+    minSide: Math.max(4, Math.round((Math.min(W, H) * f.minSideFrac) / scale.side)),
   };
 }
 
@@ -276,12 +283,13 @@ function selectWaterCandidates(
 async function regionsFromImageData(
   img: ImageData,
   sensitivity: ScanSensitivity,
+  zoom: number,
 ): Promise<{ regions: WaterRegion[]; totalWaterPx: number }> {
   const W = img.width;
   const H = img.height;
   // Exact color match — no tolerance, so green/near-water pixels are rejected.
   const tolerance = 0;
-  const { minArea, minSide } = scanThresholds(sensitivity, W, H);
+  const { minArea, minSide } = scanThresholds(sensitivity, W, H, zoom);
   return analyzeWater(img.data, W, H, [DARK_WATER], tolerance, minArea, minSide, {
     blueDominance: false,
   });
@@ -292,14 +300,15 @@ async function regionsFromImageData(
  * the dark-theme water color (#93dbee), then detects ponds of that exact color.
  */
 export async function scanForWater(
-  area: { lat: number; lng: number; radiusKm: number },
+  area: { lat: number; lng: number },
   sensitivity: ScanSensitivity = 'default',
   opts?: { mapZoom?: number },
 ): Promise<ScanResult> {
   const size = 640;
   // The static map is rendered at exactly the live map's zoom so the preview
-  // matches the map view. The radius is used only to exclude far-away results.
-  const zoom = Math.min(21, Math.max(3, Math.round(opts?.mapZoom ?? zoomForRadius(area.lat, area.radiusKm, size))));
+  // matches the map view. The zone scanned is the map viewport around the
+  // search center, at the current zoom.
+  const zoom = Math.min(21, Math.max(3, Math.round(opts?.mapZoom ?? 15)));
   const url = staticMapForScan({ lat: area.lat, lng: area.lng }, zoom, size);
   if (!url) throw new Error('Map service unavailable');
 
@@ -335,7 +344,7 @@ export async function scanForWater(
   ctx.drawImage(image, 0, 0);
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity);
+  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity, zoom);
   const chosen = selectWaterCandidates(regions, totalWaterPx, img.width, img.height);
 
   // The image is requested as `size` but may come back at a higher resolution
@@ -343,15 +352,11 @@ export async function scanForWater(
   // image/request pixel ratio, otherwise points land twice as far from center.
   const worldPerImagePx = size / img.width;
   const worldCenter = latLngToWorld(area.lat, area.lng, zoom);
-  const candidates = chosen
-    .map((r) => {
-      const wx = worldCenter.x + (r.cx - img.width / 2) * worldPerImagePx;
-      const wy = worldCenter.y + (r.cy - img.height / 2) * worldPerImagePx;
-      return { ...worldToLatLng(wx, wy, zoom), areaPx: r.areaPx, px: r.cx, py: r.cy };
-    })
-    // The static image is a square larger than the search circle; only report
-    // water bodies whose center is inside the requested radius.
-    .filter((c) => haversineKm(c, area) <= area.radiusKm);
+  const candidates = chosen.map((r) => {
+    const wx = worldCenter.x + (r.cx - img.width / 2) * worldPerImagePx;
+    const wy = worldCenter.y + (r.cy - img.height / 2) * worldPerImagePx;
+    return { ...worldToLatLng(wx, wy, zoom), areaPx: r.areaPx, px: r.cx, py: r.cy };
+  });
 
   return { candidates, previewUrl: objectUrl, width: img.width, height: img.height };
 }

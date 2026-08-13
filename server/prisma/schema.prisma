@@ -52,7 +52,7 @@ model Search {
   name      String
   lat       Float
   lng       Float
-  radiusKm  Float
+  zoom      Int      @default(14)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
