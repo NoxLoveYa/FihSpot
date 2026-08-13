@@ -13,6 +13,7 @@ import {
   faEyeSlash,
   faFish,
   faLocationDot,
+  faMinus,
   faRotate,
   faTrashCan,
   faWater,
@@ -40,6 +41,7 @@ interface SearchPanelProps {
   pois: PoISummary[];
   loading: boolean;
   activeSearchId: string | null;
+  minimized: boolean;
   candidates: DetectedWater[];
   scanning: boolean;
   previewUrl: string | null;
@@ -51,6 +53,7 @@ interface SearchPanelProps {
   onCenter: (latlng: LatLng) => void;
   onRadiusChange: (radiusKm: number) => void;
   onClose: () => void;
+  onMinimize: () => void;
   onSelect: (id: string) => void;
   onToggleSeen: (poiId: string, seen: boolean) => void;
   onSaved: (search: Search) => void;
@@ -63,6 +66,7 @@ export function SearchPanel({
   pois,
   loading,
   activeSearchId,
+  minimized,
   candidates,
   scanning,
   previewUrl,
@@ -74,6 +78,7 @@ export function SearchPanel({
   onCenter,
   onRadiusChange,
   onClose,
+  onMinimize,
   onSelect,
   onToggleSeen,
   onSaved,
@@ -198,7 +203,7 @@ export function SearchPanel({
 
   return (
     <AnimatePresence>
-      {position && (
+      {position && !minimized && (
         <motion.aside
           initial={isDesktop ? { x: '100%' } : { y: '100%' }}
           animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -219,13 +224,23 @@ export function SearchPanel({
                 {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              aria-label={t('search.close')}
-              className="glass grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
-            >
-              <FontAwesomeIcon icon={faXmark} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={onMinimize}
+                aria-label={t('search.minimize')}
+                title={t('search.minimize')}
+                className="glass grid h-9 w-9 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
+              >
+                <FontAwesomeIcon icon={faMinus} />
+              </button>
+              <button
+                onClick={onClose}
+                aria-label={t('search.close')}
+                className="glass grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4 safe-bottom">

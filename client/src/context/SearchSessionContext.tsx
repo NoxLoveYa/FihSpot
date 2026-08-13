@@ -27,6 +27,8 @@ interface SearchSessionValue {
   setSearchPois: Dispatch<SetStateAction<PoISummary[]>>;
   savedOpen: boolean;
   setSavedOpen: Dispatch<SetStateAction<boolean>>;
+  minimized: boolean;
+  setMinimized: Dispatch<SetStateAction<boolean>>;
   previewUrl: string | null;
   previewSize: { width: number; height: number } | null;
   setPreview: (url: string | null, size: { width: number; height: number } | null) => void;
@@ -42,6 +44,7 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
   const [candidates, setCandidates] = useState<DetectedWater[]>([]);
   const [searchPois, setSearchPois] = useState<PoISummary[]>([]);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [preview, setPreviewState] = useState<PreviewInfo>({ url: null, size: null });
   const previewUrlRef = useRef<string | null>(null);
 
@@ -62,6 +65,7 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
     setCandidates([]);
     setSearchPois([]);
     setSavedOpen(false);
+    setMinimized(false);
     setPreview(null, null);
   }, [setPreview]);
 
@@ -79,6 +83,8 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
       setSearchPois,
       savedOpen,
       setSavedOpen,
+      minimized,
+      setMinimized,
       previewUrl: preview.url,
       previewSize: preview.size,
       setPreview,
@@ -91,6 +97,7 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
       candidates,
       searchPois,
       savedOpen,
+      minimized,
       preview,
       setPreview,
       clearSearch,

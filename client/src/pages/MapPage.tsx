@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookmark, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import { faBookmark, faBullseye, faFish } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
 import type { Bounds, PoISummary, Search } from '../api/types';
 import { api } from '../api/client';
@@ -67,6 +67,8 @@ export function MapPage() {
     setSearchPois,
     savedOpen,
     setSavedOpen,
+    minimized,
+    setMinimized,
     previewUrl,
     previewSize,
     setPreview,
@@ -454,6 +456,7 @@ export function MapPage() {
         pois={searchPois}
         loading={searchLoading}
         activeSearchId={activeSearchId}
+        minimized={minimized}
         candidates={candidates}
         scanning={scanning}
         previewUrl={previewUrl}
@@ -465,6 +468,7 @@ export function MapPage() {
         onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
         onRadiusChange={handleRadiusChange}
         onClose={handleClearSearch}
+        onMinimize={() => setMinimized(true)}
         onSelect={(id) => setSelectedId(id)}
         onToggleSeen={handleToggleSeen}
         onSaved={(search) => {
@@ -483,6 +487,23 @@ export function MapPage() {
         onOpen={handleOpenSaved}
         onDelete={handleDeleteSaved}
       />
+
+      {searchArea && minimized && !selectedId && (
+        <button
+          onClick={() => setMinimized(false)}
+          aria-label={t('search.restore')}
+          title={t('search.restore')}
+          className="glass-strong fixed bottom-6 left-1/2 z-[1350] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 md:bottom-auto md:left-auto md:right-6 md:top-24 md:translate-x-0 dark:text-slate-100"
+        >
+          <FontAwesomeIcon icon={faFish} className="h-4 w-4 text-brand-500" />
+          {t('search.title')}
+          {candidates.length > 0 && (
+            <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:text-brand-200">
+              {candidates.length}
+            </span>
+          )}
+        </button>
+      )}
 
       {!selectedId && (
         <>

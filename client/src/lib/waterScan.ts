@@ -62,29 +62,30 @@ export type ScanSensitivity = 'sensitive' | 'default' | 'strict';
 export const SCAN_SENSITIVITIES: ScanSensitivity[] = ['sensitive', 'default', 'strict'];
 
 interface SensitivityFactors {
-  minSideM: number;
-  minAreaM2: number;
+  minSideFrac: number;
+  minAreaFrac: number;
 }
 
-// Minimum pond size in physical units (meters). Kept constant whatever the
-// search radius, so the same ponds are detected at 2 km and 20 km.
+// Minimum pond size as a fraction of the analyzed image. Because it is
+// expressed in pixels, it is automatically affected by the zoom level: zoomed
+// in, a small pond covers many pixels and is detected; zoomed out, the same
+// physical size shrinks below the threshold and is ignored.
 const SCAN_SENSITIVITY_FACTORS: Record<ScanSensitivity, SensitivityFactors> = {
-  sensitive: { minSideM: 30, minAreaM2: 700 },
-  default: { minSideM: 50, minAreaM2: 2000 },
-  strict: { minSideM: 100, minAreaM2: 8000 },
+  sensitive: { minSideFrac: 0.006, minAreaFrac: 0.00008 },
+  default: { minSideFrac: 0.01, minAreaFrac: 0.0002 },
+  strict: { minSideFrac: 0.018, minAreaFrac: 0.0005 },
 };
 
 /**
- * Pixel thresholds used to consider a water body "a pond", converted from the
- * configured physical size given the meters-per-pixel of the scanned image.
- * Larger values only accept bigger water areas (rivers stay filtered by minSide).
+ * Pixel thresholds used to consider a water body "a pond", constant in on-screen
+ * pixels (so they scale with the map zoom). Larger values only accept bigger
+ * water areas (rivers stay filtered by minSide).
  */
-export function scanThresholds(sensitivity: ScanSensitivity, metersPerPx: number) {
+export function scanThresholds(sensitivity: ScanSensitivity, W: number, H: number) {
   const f = SCAN_SENSITIVITY_FACTORS[sensitivity] ?? SCAN_SENSITIVITY_FACTORS.default;
-  const mpp = Math.max(0.5, metersPerPx);
   return {
-    minArea: Math.max(20, Math.round(f.minAreaM2 / (mpp * mpp))),
-    minSide: Math.max(3, Math.round(f.minSideM / mpp)),
+    minArea: Math.max(40, Math.round(W * H * f.minAreaFrac)),
+    minSide: Math.max(4, Math.round(Math.min(W, H) * f.minSideFrac)),
   };
 }
 
@@ -104,9 +105,10 @@ export interface WaterAnalysis {
 
 /**
  * Pure analysis of a square RGBA pixel buffer. Finds water-colored regions
- * that are big enough to be ponds (small rivers are rejected by their tiny
- * bounding-box width). Every region is kept, with metadata the caller uses
- * to apply the edge policy (ocean/sea vs partially visible ponds).
+ * that are big enough to be ponds. Thin winding shapes (rivers) are rejected
+ * by their poor area/perimeter thickness. Reported positions are snapped to a
+ * real water pixel so they never land on land. Every region is kept, with
+ * metadata the caller uses to apply the edge policy (ocean/sea vs ponds).
  */
 export function analyzeWater(
   data: Uint8ClampedArray,
@@ -149,13 +151,10 @@ export function analyzeWater(
     if (visited[i]) continue;
 
     let area = 0;
-    let minX = W;
-    let maxX = 0;
-    let minY = H;
-    let maxY = 0;
     let sumX = 0;
     let sumY = 0;
     let touchesEdge = false;
+    const regionPixels: number[] = [];
     const stack = [i];
     visited[i] = 1;
 
@@ -166,10 +165,7 @@ export function analyzeWater(
       area += 1;
       sumX += x;
       sumY += y;
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
+      regionPixels.push(cur);
       if (x === 0 || y === 0 || x === W - 1 || y === H - 1) touchesEdge = true;
 
       if (x + 1 < W && !visited[y * W + x + 1] && isWater[y * W + x + 1]) {
@@ -190,18 +186,50 @@ export function analyzeWater(
       }
     }
 
-    const bw = maxX - minX + 1;
-    const bh = maxY - minY + 1;
     if (area < minArea) continue;
-    if (bw < minSide || bh < minSide) continue;
+
+    // Real thickness via area/perimeter: a thin winding river has a large
+    // perimeter for its area (so 2·area/perimeter is small), while a round
+    // pond of the same area has a large thickness. Rejects rivers far better
+    // than a bounding-box minSide check.
+    let edgePixels = 0;
+    for (const p of regionPixels) {
+      const x = p % W;
+      const y = (p / W) | 0;
+      let n = 0;
+      if (x > 0 && isWater[y * W + x - 1]) n += 1;
+      if (x < W - 1 && isWater[y * W + x + 1]) n += 1;
+      if (y > 0 && isWater[(y - 1) * W + x]) n += 1;
+      if (y < H - 1 && isWater[(y + 1) * W + x]) n += 1;
+      if (n < 4) edgePixels += 1;
+    }
+    const thickness = (2 * area) / Math.max(1, edgePixels);
+    if (thickness < minSide) continue;
+
+    // The mean pixel position can fall in the concave gap next to a
+    // kidney-shaped or winding water body. Snap it to the actual water pixel
+    // closest to the centroid so the marker always lands on water.
+    const cx0 = sumX / area;
+    const cy0 = sumY / area;
+    let bestIdx = regionPixels[0];
+    let bestDist = Infinity;
+    for (const p of regionPixels) {
+      const x = p % W;
+      const y = (p / W) | 0;
+      const d = (x - cx0) * (x - cx0) + (y - cy0) * (y - cy0);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = p;
+      }
+    }
 
     found.push({
-      cx: sumX / area,
-      cy: sumY / area,
+      cx: bestIdx % W,
+      cy: (bestIdx / W) | 0,
       areaPx: area,
       touchesEdge,
       fraction: area / (W * H),
-      minDim: Math.min(bw, bh),
+      minDim: Math.round(thickness),
     });
   }
 
@@ -248,12 +276,12 @@ function selectWaterCandidates(
 async function regionsFromImageData(
   img: ImageData,
   sensitivity: ScanSensitivity,
-  metersPerPx: number,
 ): Promise<{ regions: WaterRegion[]; totalWaterPx: number }> {
   const W = img.width;
   const H = img.height;
-  const tolerance = 6; // exact #93dbee, with a small anti-aliasing allowance
-  const { minArea, minSide } = scanThresholds(sensitivity, metersPerPx);
+  // Exact color match — no tolerance, so green/near-water pixels are rejected.
+  const tolerance = 0;
+  const { minArea, minSide } = scanThresholds(sensitivity, W, H);
   return analyzeWater(img.data, W, H, [DARK_WATER], tolerance, minArea, minSide, {
     blueDominance: false,
   });
@@ -307,12 +335,7 @@ export async function scanForWater(
   ctx.drawImage(image, 0, 0);
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  // Ground resolution: at this zoom the world spans `256 * 2^zoom` pixels over
-  // the circumference at the scan latitude; the image covers `size` of those
-  // world pixels across `img.width` actual pixels.
-  const latRad = (area.lat * Math.PI) / 180;
-  const metersPerPx = (size * EARTH_CIRC_M * Math.cos(latRad)) / (256 * 2 ** zoom) / img.width;
-  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity, metersPerPx);
+  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity);
   const chosen = selectWaterCandidates(regions, totalWaterPx, img.width, img.height);
 
   // The image is requested as `size` but may come back at a higher resolution

@@ -111,6 +111,8 @@ export const fr = {
   'search.tapMap': 'Touchez la carte pour placer le centre de recherche',
   'search.title': 'Recherche de spots',
   'search.close': 'Fermer',
+  'search.minimize': 'Réduire le panneau',
+  'search.restore': 'Rouvrir le panneau de recherche',
   'search.radius': 'Rayon',
   'search.results': 'Spots ({{count}})',
   'search.noResults': 'Aucun spot dans cette zone. Essayez un plus grand rayon.',
