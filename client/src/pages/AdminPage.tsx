@@ -6,12 +6,15 @@ import {
   faArrowLeft,
   faCamera,
   faComment,
+  faDownload,
+  faExpand,
   faFish,
   faMapPin,
   faPenToSquare,
   faShieldHalved,
   faTrash,
   faUserGroup,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import type { AdminModerationComment, AdminModerationPhoto, AdminPoi, AdminStatsResponse, AdminUser, Role } from '../api/types';
 import { api, ApiError } from '../api/client';
@@ -291,6 +294,7 @@ export function AdminPage() {
   const [modLoading, setModLoading] = useState(true);
   const [busyComment, setBusyComment] = useState<string | null>(null);
   const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<AdminModerationPhoto | null>(null);
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -806,33 +810,41 @@ export function AdminPage() {
               ) : modPhotos.length === 0 ? (
                 <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noPhotos')}</p>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {modPhotos.map((p) => (
-                    <div key={p.id} className="glass-strong overflow-hidden rounded-2xl">
-                      <div className="group relative aspect-[4/3] w-full overflow-hidden">
-                        <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl">
+                      <button onClick={() => setViewingPhoto(p)} aria-label={t('poi.viewPhoto')} title={t('poi.viewPhoto')} className="block h-full w-full">
+                        <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                      <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">
+                        {p.poi.name}
+                      </span>
+                      <div className="absolute right-1 top-1 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                        <button
+                          onClick={() => setViewingPhoto(p)}
+                          aria-label={t('poi.viewPhoto')}
+                          title={t('poi.viewPhoto')}
+                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                        >
+                          <FontAwesomeIcon icon={faExpand} className="h-2.5 w-2.5" />
+                        </button>
+                        <a
+                          href={p.url}
+                          download
+                          aria-label={t('poi.downloadPhoto')}
+                          title={t('poi.downloadPhoto')}
+                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                        >
+                          <FontAwesomeIcon icon={faDownload} className="h-2.5 w-2.5" />
+                        </a>
                         <button
                           onClick={() => deletePhoto(p)}
                           disabled={busyPhoto === p.id}
                           title={t('admin.mod.deletePhoto')}
-                          className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
+                          className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-[10px] text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
                         >
-                          {busyPhoto === p.id ? <Spinner className="h-3.5 w-3.5" /> : <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />}
+                          {busyPhoto === p.id ? <Spinner className="h-2.5 w-2.5" /> : <FontAwesomeIcon icon={faTrash} className="h-2.5 w-2.5" />}
                         </button>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-2.5">
-                        <Avatar url={p.user.avatarUrl} name={p.user.name} size="h-7 w-7" />
-                        <div className="min-w-0 flex-1">
-                          <button
-                            onClick={() => navigate(`/?poi=${p.poi.id}`)}
-                            className="block truncate text-xs font-semibold text-slate-700 transition-colors hover:text-brand-600 dark:text-slate-200"
-                          >
-                            {p.poi.name}
-                          </button>
-                          <p className="text-[11px] text-slate-400">
-                            {p.user.name} · {formatDate(p.createdAt)}
-                          </p>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -937,6 +949,42 @@ export function AdminPage() {
               </Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {viewingPhoto && (
+        <div
+          className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setViewingPhoto(null)}
+        >
+          <button
+            onClick={() => setViewingPhoto(null)}
+            aria-label={t('poi.close')}
+            className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+          <a
+            href={viewingPhoto.url}
+            download
+            aria-label={t('poi.downloadPhoto')}
+            title={t('poi.downloadPhoto')}
+            className="absolute bottom-4 right-4 grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+          >
+            <FontAwesomeIcon icon={faDownload} className="h-5 w-5" />
+          </a>
+          <figure className="max-w-full" onClick={(e) => e.stopPropagation()}>
+            <img src={viewingPhoto.url} alt="" className="max-h-[70dvh] w-auto rounded-2xl object-contain shadow-float" />
+            <figcaption className="mt-3 flex items-center gap-3">
+              <Avatar url={viewingPhoto.user.avatarUrl} name={viewingPhoto.user.name} size="h-9 w-9" />
+              <div>
+                <p className="text-sm font-semibold text-white">{viewingPhoto.user.name}</p>
+                <p className="text-xs text-white/60">
+                  {viewingPhoto.poi.name} · {formatDate(viewingPhoto.createdAt)}
+                </p>
+              </div>
+            </figcaption>
+          </figure>
         </div>
       )}
     </div>
