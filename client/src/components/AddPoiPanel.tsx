@@ -93,7 +93,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
           href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-soft ring-1 ring-inset ring-white/20 transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:ring-slate-900/10 dark:hover:bg-slate-100"
         >
           <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
           {t('poi.openInMaps')}

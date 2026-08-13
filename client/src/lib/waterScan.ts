@@ -266,16 +266,12 @@ async function regionsFromImageData(
 export async function scanForWater(
   area: { lat: number; lng: number; radiusKm: number },
   sensitivity: ScanSensitivity = 'default',
-  opts?: { minZoom?: number },
+  opts?: { mapZoom?: number },
 ): Promise<ScanResult> {
   const size = 640;
-  // Use the current map zoom when it's higher than the radius-fitting zoom, so
-  // the analyzed image matches what the user is looking at (and the detected
-  // spots align with the map view).
-  const zoom = Math.min(
-    21,
-    Math.max(3, Math.round(Math.max(zoomForRadius(area.lat, area.radiusKm, size), opts?.minZoom ?? 0))),
-  );
+  // The static map is rendered at exactly the live map's zoom so the preview
+  // matches the map view. The radius is used only to exclude far-away results.
+  const zoom = Math.min(21, Math.max(3, Math.round(opts?.mapZoom ?? zoomForRadius(area.lat, area.radiusKm, size))));
   const url = staticMapForScan({ lat: area.lat, lng: area.lng }, zoom, size);
   if (!url) throw new Error('Map service unavailable');
 

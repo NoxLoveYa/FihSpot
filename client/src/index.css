@@ -83,6 +83,60 @@
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
   }
+
+  /* Flat page shell: soft fading gradient background with blurred glow blobs
+     floating behind the content (blur-on-top glass look). */
+  .page-shell {
+    position: relative;
+    isolation: isolate;
+    min-height: 100%;
+    overflow-y: auto;
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(60rem 42rem at 12% -6%, rgba(99, 102, 241, 0.09), transparent 55%),
+      radial-gradient(52rem 38rem at 96% 2%, rgba(13, 148, 136, 0.07), transparent 50%);
+  }
+
+  .dark .page-shell {
+    background-color: #0f172a;
+    background-image:
+      radial-gradient(60rem 42rem at 12% -6%, rgba(99, 102, 241, 0.13), transparent 55%),
+      radial-gradient(52rem 38rem at 96% 2%, rgba(13, 148, 136, 0.1), transparent 50%);
+  }
+
+  .page-shell::before,
+  .page-shell::after {
+    content: '';
+    position: fixed;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(70px);
+  }
+
+  .page-shell::before {
+    top: -8rem;
+    right: -6rem;
+    width: 26rem;
+    height: 26rem;
+    background: rgba(99, 102, 241, 0.16);
+  }
+
+  .page-shell::after {
+    bottom: -10rem;
+    left: -8rem;
+    width: 30rem;
+    height: 30rem;
+    background: rgba(13, 148, 136, 0.13);
+  }
+
+  .dark .page-shell::before {
+    background: rgba(99, 102, 241, 0.2);
+  }
+
+  .dark .page-shell::after {
+    background: rgba(13, 148, 136, 0.16);
+  }
 }
 
 .gm-marker-content {

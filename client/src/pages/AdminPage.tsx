@@ -521,7 +521,7 @@ export function AdminPage() {
   ];
 
   return (
-    <div className="min-h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
+    <div className="page-shell">
       <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3">
         <button
           onClick={() => navigate('/')}

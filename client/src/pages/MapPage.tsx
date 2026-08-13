@@ -176,7 +176,7 @@ export function MapPage() {
       setScanning(true);
       try {
         const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity, {
-          minZoom: mapRef.current?.getZoom() ?? undefined,
+          mapZoom: mapRef.current?.getZoom() ?? undefined,
         });
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));

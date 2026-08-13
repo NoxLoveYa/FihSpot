@@ -187,7 +187,7 @@ export function PoisPage() {
   }, [pois, query, sort]);
 
   return (
-    <div className="min-h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
+    <div className="page-shell">
       <div className="glass sticky top-0 z-40">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
           <button
