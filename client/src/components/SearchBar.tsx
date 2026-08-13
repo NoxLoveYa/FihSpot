@@ -93,7 +93,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
 
   return (
     <div ref={containerRef} className="pointer-events-auto relative w-full max-w-md">
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white/90 px-3.5 shadow-soft backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/90">
+      <div className="glass flex items-center gap-2 rounded-2xl px-3.5">
         <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
         <input
           value={query}
@@ -127,7 +127,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-soft backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95"
+            className="glass-strong absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl"
           >
             {results.map((r, i) => (
               <li key={`${r.lat}-${r.lon}-${i}`}>

@@ -47,14 +47,14 @@ export function RegisterPage() {
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-brand-50 px-4 py-10 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900">
       <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
-        <ThemeToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
-        <LanguageToggle className="bg-white/80 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700" />
+        <ThemeToggle className="text-slate-600 dark:text-slate-200" />
+        <LanguageToggle className="text-slate-600 dark:text-slate-200" />
       </div>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-soft dark:bg-slate-800"
+        className="glass-strong w-full max-w-sm rounded-3xl p-6"
       >
         <div className="mb-6 flex flex-col items-center gap-2">
           <Logo className="h-10 w-10 text-emerald-600" />

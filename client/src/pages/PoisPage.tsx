@@ -49,7 +49,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
           onClick();
         }
       }}
-      className="group flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-white text-left shadow-soft transition-all hover:-translate-y-1 hover:shadow-float dark:bg-slate-800"
+      className="glass-strong group flex cursor-pointer flex-col overflow-hidden rounded-3xl text-left transition-all hover:-translate-y-1 hover:shadow-float"
     >
       <div className="relative aspect-[2/1] w-full overflow-hidden">
         {mapUrl && !imgError ? (
@@ -75,7 +75,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
           }}
           aria-label={t('poi.viewOnMap')}
           title={t('poi.viewOnMap')}
-          className="absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate-700 shadow-soft backdrop-blur-md transition-all hover:scale-105 hover:bg-white active:scale-95 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-700"
+          className="glass absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
         >
           <FontAwesomeIcon icon={faExpand} className="h-4 w-4" />
         </button>
@@ -90,7 +90,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
         )}
 
         {lastComment && (
-          <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
+          <div className="glass rounded-xl px-3 py-2">
             <p className="line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               <button
                 onClick={(e) => {
@@ -177,7 +177,7 @@ export function PoisPage() {
 
   return (
     <div className="min-h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
-      <div className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="glass sticky top-0 z-40">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
           <button
             onClick={() => navigate('/')}
@@ -188,13 +188,13 @@ export function PoisPage() {
           </button>
           <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">{t('pois.title')}</h1>
           <div className="flex items-center gap-2">
-            <ThemeToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
-            <LanguageToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
+            <ThemeToggle className="text-slate-600 dark:text-slate-200" />
+            <LanguageToggle className="text-slate-600 dark:text-slate-200" />
           </div>
         </div>
 
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 pb-3">
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white px-3.5 shadow-soft dark:border-slate-700 dark:bg-slate-900/60">
+          <div className="glass flex items-center gap-2 rounded-2xl px-3.5">
             <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               value={query}
@@ -205,7 +205,7 @@ export function PoisPage() {
           </div>
 
           <div className="flex items-center justify-end">
-            <label className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-soft dark:bg-slate-800 dark:text-slate-300">
+            <label className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <FontAwesomeIcon icon={faMapPin} className="h-3 w-3 text-brand-500" />
               <select
                 value={sort}
@@ -225,7 +225,7 @@ export function PoisPage() {
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="overflow-hidden rounded-3xl bg-white shadow-soft dark:bg-slate-800">
+              <div key={i} className="glass-strong overflow-hidden rounded-3xl">
                 <Skeleton className="h-36 w-full rounded-none" />
                 <div className="flex flex-col gap-2 p-4">
                   <Skeleton className="h-4 w-2/3" />

@@ -18,6 +18,67 @@
   }
 }
 
+@layer components {
+  /* Liquid glass — translucent, reflective, edge-lit */
+  .glass {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(255, 255, 255, 0.32) 45%,
+      rgba(255, 255, 255, 0.55) 100%
+    );
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow:
+      0 8px 32px -8px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+  }
+
+  .dark .glass {
+    background: linear-gradient(
+      135deg,
+      rgba(51, 65, 85, 0.55) 0%,
+      rgba(15, 23, 42, 0.38) 100%
+    );
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 8px 32px -8px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Stronger, more opaque glass for text-heavy panels */
+  .glass-strong {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.6) 100%
+    );
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 12px 40px -12px rgba(15, 23, 42, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .dark .glass-strong {
+    background: linear-gradient(
+      135deg,
+      rgba(30, 41, 59, 0.72) 0%,
+      rgba(15, 23, 42, 0.55) 100%
+    );
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow:
+      0 12px 40px -12px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
 @layer utilities {
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);

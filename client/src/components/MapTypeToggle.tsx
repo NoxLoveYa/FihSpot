@@ -22,7 +22,7 @@ export function MapTypeToggle({ mapType, onChange, className = '' }: MapTypeTogg
     <div
       role="group"
       aria-label={t('map.mapType.label')}
-      className={`flex shrink-0 items-center gap-1 rounded-xl bg-white/80 p-1 shadow-soft backdrop-blur-md dark:bg-slate-800/80 ${className}`}
+      className={`glass flex shrink-0 items-center gap-1 rounded-xl p-1 ${className}`}
     >
       {buttons.map((b) => (
         <button

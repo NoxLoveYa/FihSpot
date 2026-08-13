@@ -69,7 +69,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
         animate={isDesktop ? { x: 0 } : { y: 0 }}
         exit={isDesktop ? { x: '100%' } : { y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-        className={`fixed z-[1400] flex flex-col gap-4 overflow-hidden rounded-t-3xl bg-white/85 p-5 shadow-float backdrop-blur-md dark:bg-slate-800/85 md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
+        className={`glass-strong fixed z-[1400] flex flex-col gap-4 overflow-hidden rounded-t-3xl p-5 md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
           isDesktop ? 'right-0 w-[420px]' : 'inset-x-0 bottom-0'
         }`}
       >
@@ -78,7 +78,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
           <button
             type="button"
             onClick={onCancel}
-            className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
+            className="glass grid h-9 w-9 place-items-center rounded-full text-slate-500 dark:text-slate-300"
           >
             <FontAwesomeIcon icon={faXmark} />
           </button>
@@ -109,7 +109,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             placeholder={t('addPoi.descriptionPlaceholder')}
-            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="glass w-full resize-none rounded-xl px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:text-slate-100"
           />
         </label>
 

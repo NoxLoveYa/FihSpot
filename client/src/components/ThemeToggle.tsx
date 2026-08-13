@@ -12,7 +12,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       onClick={toggle}
       aria-label={theme === 'dark' ? t('theme.enableLight') : t('theme.enableDark')}
       title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
-      className={`grid h-10 w-10 place-items-center rounded-xl text-base shadow-soft backdrop-blur-md transition-all active:scale-95 ${className}`}
+      className={`glass grid h-10 w-10 place-items-center rounded-xl text-base transition-all hover:brightness-105 active:scale-95 ${className}`}
     >
       <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} />
     </button>

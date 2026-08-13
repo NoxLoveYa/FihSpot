@@ -69,23 +69,23 @@ export function ProfilePage() {
 
   return (
     <div className="min-h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80">
+      <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+          className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
         >
           <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
           {t('profile.back')}
         </button>
         <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">{t('profile.title')}</h1>
         <div className="flex items-center gap-2">
-          <ThemeToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
-          <LanguageToggle className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200" />
+          <ThemeToggle className="text-slate-600 dark:text-slate-200" />
+          <LanguageToggle className="text-slate-600 dark:text-slate-200" />
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-2xl px-4 py-6">
-        <div className="mb-6 flex flex-col items-center gap-4 rounded-3xl bg-white p-6 shadow-soft dark:bg-slate-800">
+        <div className="glass-strong mb-6 flex flex-col items-center gap-4 rounded-3xl p-6">
           <div className="relative">
             <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-brand-100 ring-4 ring-white dark:ring-slate-800">
               {user?.avatarUrl ? (
@@ -106,7 +106,7 @@ export function ProfilePage() {
               disabled={uploading}
               aria-label={t('profile.changePhoto')}
               title={t('profile.changePhoto')}
-              className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 shadow-soft transition-transform hover:scale-105 active:scale-95 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+              className="glass absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full text-sm text-slate-600 transition-transform hover:scale-105 active:scale-95 dark:text-slate-200"
             >
               <FontAwesomeIcon icon={faCamera} />
             </button>
@@ -129,7 +129,7 @@ export function ProfilePage() {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`rounded-xl px-2 py-2 transition-colors ${
-                  tab === t.key ? 'bg-brand-50 dark:bg-brand-900/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  tab === t.key ? 'bg-brand-500/20' : 'hover:bg-white/60 dark:hover:bg-slate-700/50'
                 }`}
               >
                 <span className="block text-lg font-extrabold text-slate-800 dark:text-slate-100">{t.count}</span>
@@ -141,7 +141,7 @@ export function ProfilePage() {
           </div>
         </div>
 
-        <div className="mb-4 flex gap-1 rounded-2xl bg-white p-1 shadow-soft dark:bg-slate-800">
+        <div className="glass mb-4 flex gap-1 rounded-2xl p-1">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -164,7 +164,7 @@ export function ProfilePage() {
             <Skeleton className="h-16 w-full" />
           </div>
         ) : !content ? (
-          <p className="rounded-2xl bg-white px-4 py-8 text-center text-sm text-slate-400 shadow-soft dark:bg-slate-800">
+          <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">
             {t('profile.loadError')}
           </p>
         ) : (
@@ -178,7 +178,7 @@ export function ProfilePage() {
                     <li key={poi.id}>
                       <button
                         onClick={() => goToPoi(poi.id)}
-                        className="w-full rounded-2xl bg-white p-4 text-left shadow-soft transition-shadow hover:shadow-float dark:bg-slate-800"
+                        className="glass-strong w-full rounded-2xl p-4 text-left transition-shadow hover:shadow-float"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate font-semibold text-slate-800 dark:text-slate-100">
@@ -209,7 +209,7 @@ export function ProfilePage() {
                     <li key={c.id}>
                       <button
                         onClick={() => goToPoi(c.poi.id)}
-                        className="w-full rounded-2xl bg-white p-4 text-left shadow-soft transition-shadow hover:shadow-float dark:bg-slate-800"
+                        className="glass-strong w-full rounded-2xl p-4 text-left transition-shadow hover:shadow-float"
                       >
                         <p className="text-sm text-slate-700 dark:text-slate-200">{c.content}</p>
                         <p className="mt-2 text-xs text-slate-400">
@@ -232,7 +232,7 @@ export function ProfilePage() {
                     <button
                       key={p.id}
                       onClick={() => goToPoi(p.poi.id)}
-                      className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100 shadow-soft"
+                      className="glass group relative aspect-square overflow-hidden rounded-2xl"
                     >
                       <img
                         src={p.url}
@@ -256,7 +256,7 @@ export function ProfilePage() {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <p className="rounded-2xl bg-white px-4 py-8 text-center text-sm text-slate-400 shadow-soft dark:bg-slate-800">
+    <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">
       {message}
     </p>
   );

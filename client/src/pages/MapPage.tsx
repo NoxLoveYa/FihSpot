@@ -183,7 +183,7 @@ export function MapPage() {
 
       {initialLoading && (
         <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
-          <div className="rounded-xl bg-white/90 px-4 py-2 text-sm font-medium text-slate-500 shadow-soft backdrop-blur">
+          <div className="glass rounded-xl px-4 py-2 text-sm font-medium text-slate-500">
             {t('map.loading')}
           </div>
         </div>
@@ -218,7 +218,7 @@ export function MapPage() {
 
       {locating && (
         <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">
-          <div className="flex items-center gap-2.5 rounded-xl bg-white/90 px-4 py-2.5 text-sm font-medium text-slate-600 shadow-soft backdrop-blur dark:bg-slate-800/90 dark:text-slate-200">
+          <div className="glass flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-200">
             <Spinner className="h-4 w-4 border-slate-300 border-t-brand-600" />
             {t('locate.locating')}
           </div>
