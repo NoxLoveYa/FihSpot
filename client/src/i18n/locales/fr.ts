@@ -30,9 +30,6 @@ export const fr = {
 
   'map.loading': 'Chargement des points…',
   'map.loadError': 'Impossible de charger les points',
-  'map.addPoi': 'Ajouter un point',
-  'map.cancelAdd': 'Annuler l\'ajout',
-  'map.clickToPlace': 'Cliquez sur la carte pour placer le point',
   'map.mapType.label': 'Type de carte',
   'map.mapType.map': 'Carte',
   'map.mapType.satellite': 'Satellite',

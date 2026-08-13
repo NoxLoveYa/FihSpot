@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
 import { faFish } from '@fortawesome/free-solid-svg-icons';
 import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
@@ -24,7 +23,6 @@ function makeContent(innerHtml: string, interactive = false): HTMLElement {
 interface GoogleMapViewProps {
   pois: PoISummary[];
   selectedId: string | null;
-  adding: boolean;
   mapType: MapType;
   draftPosition: LatLng | null;
   userPosition: LatLng | null;
@@ -38,7 +36,6 @@ interface GoogleMapViewProps {
 export function GoogleMapView({
   pois,
   selectedId,
-  adding,
   mapType,
   draftPosition,
   userPosition,
@@ -48,7 +45,6 @@ export function GoogleMapView({
   onSelect,
   onPick,
 }: GoogleMapViewProps) {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -63,7 +59,6 @@ export function GoogleMapView({
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onSelectRef = useRef(onSelect);
   const onPickRef = useRef(onPick);
-  const addingRef = useRef(adding);
 
   useEffect(() => {
     onMapReadyRef.current = onMapReady;
@@ -77,9 +72,6 @@ export function GoogleMapView({
   useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
-  useEffect(() => {
-    addingRef.current = adding;
-  }, [adding]);
 
   useEffect(() => {
     let disposed = false;
@@ -114,7 +106,7 @@ export function GoogleMapView({
         });
 
         instance.addListener('click', (e: google.maps.MapMouseEvent) => {
-          if (addingRef.current && e.latLng) {
+          if (e.latLng) {
             onPickRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() });
           }
         });
@@ -251,14 +243,6 @@ export function GoogleMapView({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-
-      {adding && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] flex justify-center">
-          <div className="pointer-events-auto rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-float">
-            {t('map.clickToPlace')}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

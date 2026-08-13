@@ -7,6 +7,7 @@ import {
   faArrowLeft,
   faCamera,
   faComment,
+  faExpand,
   faFish,
   faLocationDot,
   faMagnifyingGlass,
@@ -30,16 +31,24 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function PoisCard({ poi, onClick }: { poi: PoISummary; onClick: () => void }) {
+function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () => void; onViewOnMap: () => void }) {
   const { t } = useTranslation();
   const lastComment = poi.comments?.[0];
   const [imgError, setImgError] = useState(false);
   const mapUrl = staticMapUrl(poi.lat, poi.lng, '600x300');
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-3xl bg-white text-left shadow-soft transition-all hover:-translate-y-1 hover:shadow-float dark:bg-slate-800"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-white text-left shadow-soft transition-all hover:-translate-y-1 hover:shadow-float dark:bg-slate-800"
     >
       <div className="relative h-36 overflow-hidden">
         {mapUrl && !imgError ? (
@@ -58,6 +67,17 @@ function PoisCard({ poi, onClick }: { poi: PoISummary; onClick: () => void }) {
             <FontAwesomeIcon icon={faFish} className="h-10 w-10 text-white/90" />
           </div>
         )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewOnMap();
+          }}
+          aria-label={t('poi.viewOnMap')}
+          title={t('poi.viewOnMap')}
+          className="absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate-700 shadow-soft backdrop-blur-md transition-all hover:scale-105 hover:bg-white active:scale-95 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          <FontAwesomeIcon icon={faExpand} className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -101,7 +121,7 @@ function PoisCard({ poi, onClick }: { poi: PoISummary; onClick: () => void }) {
         </div>
         <span className="text-[11px] text-slate-300 dark:text-slate-500">{formatDate(poi.createdAt)}</span>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -216,7 +236,11 @@ export function PoisPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <PoisCard poi={poi} onClick={() => setSelectedId(poi.id)} />
+                  <PoisCard
+                    poi={poi}
+                    onClick={() => setSelectedId(poi.id)}
+                    onViewOnMap={() => navigate(`/?lat=${poi.lat}&lng=${poi.lng}&zoom=17`)}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>

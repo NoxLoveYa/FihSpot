@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
 import type { Bounds, PoISummary } from '../api/types';
 import { api } from '../api/client';
@@ -21,13 +18,12 @@ import { getPreviousPath } from '../navigation';
 
 export function MapPage() {
   const { t } = useTranslation();
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const mapRef = useRef<google.maps.Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
   const [draftPosition, setDraftPosition] = useState<LatLng | null>(null);
   const [userPosition, setUserPosition] = useState<LatLng | null>(null);
   const [searchPosition, setSearchPosition] = useState<LatLng | null>(null);
@@ -36,9 +32,10 @@ export function MapPage() {
   const [locating, setLocating] = useState(false);
   const [mapType, setMapType] = useState<MapType>('roadmap');
   const autoLocatedRef = useRef(false);
+  const pendingCenterRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [shouldAutoLocate] = useState(() => {
     const prev = getPreviousPath();
-    return prev === null || prev === '/login' || prev === '/register' || prev === '/profile';
+    return prev === null || prev === '/login' || prev === '/register' || prev === '/profile' || prev === '/pois';
   });
 
   useEffect(() => {
@@ -47,6 +44,21 @@ export function MapPage() {
       setSelectedId(poiId);
       setPendingFocus(poiId);
       setSearchParams({}, { replace: true });
+      return;
+    }
+    const latParam = searchParams.get('lat');
+    const lngParam = searchParams.get('lng');
+    if (latParam && lngParam) {
+      const lat = Number(latParam);
+      const lng = Number(lngParam);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        pendingCenterRef.current = {
+          lat,
+          lng,
+          zoom: Number(searchParams.get('zoom')) || 15,
+        };
+        setSearchParams({}, { replace: true });
+      }
     }
   }, [searchParams, setSearchParams]);
 
@@ -89,7 +101,6 @@ export function MapPage() {
 
   const handleSearchSelect = useCallback((lat: number, lng: number) => {
     setSelectedId(null);
-    setAdding(false);
     setDraftPosition(null);
     setSearchPosition({ lat, lng });
     mapRef.current?.panTo({ lat, lng });
@@ -112,6 +123,11 @@ export function MapPage() {
           })
           .catch(() => {});
         setPendingFocus(null);
+      } else if (pendingCenterRef.current) {
+        const center = pendingCenterRef.current;
+        pendingCenterRef.current = null;
+        map.panTo({ lat: center.lat, lng: center.lng });
+        map.setZoom(center.zoom);
       } else if (shouldAutoLocate && !autoLocatedRef.current) {
         autoLocatedRef.current = true;
         setLocating(true);
@@ -147,9 +163,8 @@ export function MapPage() {
       <GoogleMapView
         pois={pois}
         selectedId={selectedId}
-        adding={adding}
         mapType={mapType}
-        draftPosition={adding ? draftPosition : null}
+        draftPosition={draftPosition}
         userPosition={userPosition}
         searchPosition={searchPosition}
         onMapReady={handleMapReady}
@@ -157,7 +172,6 @@ export function MapPage() {
         onSelect={(id) => {
           setSelectedId(id);
           setDraftPosition(null);
-          setAdding(false);
           setSearchPosition(null);
         }}
         onPick={handlePick}
@@ -184,11 +198,9 @@ export function MapPage() {
         position={draftPosition as LatLng}
         onCancel={() => {
           setDraftPosition(null);
-          setAdding(false);
         }}
         onCreated={() => {
           setDraftPosition(null);
-          setAdding(false);
           refresh();
         }}
       />
@@ -209,26 +221,6 @@ export function MapPage() {
             {t('locate.locating')}
           </div>
         </div>
-      )}
-
-      {user && !selectedId && (
-        <button
-          onClick={() => {
-            setAdding((a) => !a);
-            setDraftPosition(null);
-            setSelectedId(null);
-          }}
-          aria-label={adding ? t('map.cancelAdd') : t('map.addPoi')}
-          className="fixed bottom-6 right-4 z-[1500] grid h-14 w-14 place-items-center rounded-full bg-brand-600 text-2xl text-white shadow-float transition-all hover:bg-brand-700 active:scale-95"
-        >
-          <motion.span
-            animate={{ rotate: adding ? 45 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="block"
-          >
-            <FontAwesomeIcon icon={faPlus} className="h-6 w-6" />
-          </motion.span>
-        </button>
       )}
     </div>
   );

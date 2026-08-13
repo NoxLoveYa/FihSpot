@@ -30,9 +30,6 @@ export const en = {
 
   'map.loading': 'Loading points…',
   'map.loadError': "Couldn't load the points",
-  'map.addPoi': 'Add a point',
-  'map.cancelAdd': 'Cancel adding',
-  'map.clickToPlace': 'Click the map to place the point',
   'map.mapType.label': 'Map type',
   'map.mapType.map': 'Map',
   'map.mapType.satellite': 'Satellite',

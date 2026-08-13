@@ -62,16 +62,16 @@ FihSpot/
 │       │   ├── LanguageToggle.tsx # bouton EN/FR (basculer la langue, persisté)
 │       │   ├── MapTypeToggle.tsx # contrôle custom Carte/Satellite (remplace le contrôle natif Google Maps)
 │       │   ├── SearchBar.tsx     # recherche ville/lieu (Nominatim, debounce, dropdown)
-│       │   ├── UserLocationButton.tsx # localisation (navigator.geolocation) + centrage (au-dessus du FAB "+")
+│       │   ├── UserLocationButton.tsx # localisation (navigator.geolocation) + centrage (bas droite)
 │       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
-│       │   ├── GoogleMapView.tsx # carte Google Maps (Advanced Markers, bounds, géoloc, mode ajout, colorScheme, minZoom + restriction, mapType)
+│       │   ├── GoogleMapView.tsx # carte Google Maps (Advanced Markers, bounds, géoloc, ajout au clic, colorScheme, minZoom + restriction, mapType)
 │       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh + bouton "Voir sur la carte" (optionnel)
 │       │   ├── AddPoiPanel.tsx   # formulaire création après placement sur la carte
 │       │   ├── GoogleButton.tsx  # Google Identity Services (bouton "Continuer avec Google")
 │       │   ├── ProtectedRoute.tsx
 │       │   ├── Button.tsx / Input.tsx / Logo.tsx / Spinner.tsx
 │       └── pages/
-│           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états (+ focus ?poi=)
+│           ├── MapPage.tsx       # page principale : carte + drawer + états (+ focus ?poi= + centrage ?lat&lng&zoom)
 │           ├── PoisPage.tsx      # page POIs (grille) : recherche + tri + mini-cartes (Static API) + drawer détail
 │           ├── ProfilePage.tsx   # profil : avatar upload, stats, onglets points/commentaires/photos
 │           ├── LoginPage.tsx
@@ -191,7 +191,7 @@ volumes:
 ### Animations (Framer Motion)
 - **Transitions de page** : `AnimatePresence mode="wait"` + fade/slide entre routes.
 - **Drawer/side-panel POI & AddPoiPanel** : spring — remonte depuis le bas en mobile (`y`), glisse depuis la droite en desktop (`x`, via `useMediaQuery`) ; backdrop fade.
-- **FAB** : rotation `+` → `✕` (rotation 45°) et `active:scale-95`.
+- **Ajout de POI permanent** : plus de bouton "+" ni de mode — un **clic simple sur la carte** ouvre directement le formulaire d'ajout (`AddPoiPanel`) au point cliqué.
 - **Formulaires** : shake horizontal des inputs en erreur, spinners (login/register, commentaire, upload).
 - **Toasts** : slide-in/dismiss animés (success/error/info).
 - **Marqueurs Google Maps (Advanced Markers)** : `AdvancedMarkerElement` + contenu HTML (`.marker-pin` pins **icône poisson** `faFish` (pêche), anneau de sélection pulsant, points de localisation/recherche), `gmpClickable` + évènement `gmp-click` pour la sélection, `gmpClickable` des marqueurs décoratifs à `false`. Nécessite un **Map ID** (vecteur) — c'est aussi lui qui autorise `colorScheme`.
@@ -199,16 +199,16 @@ volumes:
 - **Page POIs** : grille responsive avec **layout animations** (entrée/sortie/`layout` des cartes au filtrage) — `PoisPage.tsx`.
 
 ### Responsive & ergonomie tactile
-- **Mobile** : FAB d'ajout (bas droite, 56 px), drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
-- **FAB masqué quand une fiche POI est ouverte** (`!selectedId`) pour ne pas obstruer la vue ; réapparaît à la fermeture du drawer.
-- **Localisation** : bouton 🎯 flottant **au-dessus du FAB "+"** (`bottom-24`), géolocalisation via **`navigator.geolocation`** → centrage sur l'utilisateur + **point bleu pulsant** (`userPosition`) ; toast d'erreur si localisation refusée/indisponible.
+- **Mobile** : drawer plein largeur en bas d'écran (`h-[85dvh]`), boutons ≥ 44 px, boutons delete photo visibles sans hover, safe-area inset.
+- **Ajout de POI** : clic sur la carte → formulaire d'ajout (plus de FAB "+", plus de mode activé/désactivé).
+- **Localisation** : bouton 🎯 flottant **bas droite** (`bottom-24 right-4`), géolocalisation via **`navigator.geolocation`** → centrage sur l'utilisateur + **point bleu pulsant** (`userPosition`) ; toast d'erreur si localisation refusée/indisponible.
 - **Page profil** (`/profile`, via le chip utilisateur dans la navbar) : avatar (upload 📷 → `POST /api/me/avatar`), nom/email/date d'inscription, compteurs, onglets **Points / Commentaires / Photos** ; clic sur un élément → `/?poi=<id>` → la carte se centre sur le POI et ouvre sa fiche (`pendingFocus` + `panTo`/`setZoom`).
 - **Recherche ville/lieu** : barre `SearchBar` sous la Navbar (glass, debounce 350 ms) → **Nominatim** (`format=jsonv2`, monde entier, CORS OK) → dropdown (5 résultats) → `panTo` au lieu choisi + **marqueur de recherche** (point turquoise pulsant, `searchPosition`, non cliquable). Fermeture au clic extérieur/Escape. Recherche et bouton 🎯 masqués quand une fiche POI est ouverte ; le marqueur se retire quand on sélectionne un POI ou place un nouveau point.
 - **Desktop** : side-panel 420 px à droite, carte visible à côté.
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
-- Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout, **contrôle custom Carte/Satellite** (`MapTypeToggle`, `mapTypeControl: false`) dans la Navbar + **inclinaison 45°** automatique en vue satellite (paysage 3D) — `setTilt(45)`/`setTilt(0)` via `maptypeid_changed`.
+- Carte : bouton géolocalisation 🎯 (recenter), **contrôle custom Carte/Satellite** (`MapTypeToggle`, `mapTypeControl: false`) dans la Navbar + **inclinaison 45°** automatique en vue satellite (paysage 3D) — `setTilt(45)`/`setTilt(0)` via `maptypeid_changed`.
 - **Carte sans répétition du monde** : `minZoom` dynamique (`ceil(log2(largeur/256))`) + `restriction { latLngBounds: ±85°/±180°, strictBounds: true }` → impossible de dézoomer ou glisser vers les textures dupliquées.
-- **Page POIs** (`/pois`, bouton « Explorer » dans la Navbar) : barre de **recherche** (nom+description, debounce), **tri** (récents / plus commentés), **grille** `sm:2 lg:3 xl:4` de cartes POI. Chaque carte : **mini-carte** (Google Maps **Static API** via `staticMapUrl()`, fallback dégradé bleu + icône poisson si erreur), nom, description (clampée), **dernier commentaire** (si présent), auteur/avatar + date, compteurs 💬/📷. Clic → **drawer de détail sur place** (`PoiDrawer`, photos/commentaires réutilisés) + bouton **« Voir sur la carte »** (`onViewOnMap`) → `/?poi=<id>`.
+- **Page POIs** (`/pois`, bouton « Explorer » dans la Navbar) : barre de **recherche** (nom+description, debounce), **tri** (récents / plus commentés), **grille** `sm:2 lg:3 xl:4` de cartes POI. Chaque carte : **mini-carte** (Google Maps **Static API** via `staticMapUrl()`, fallback dégradé bleu + icône poisson si erreur) avec **bouton « agrandir »** (`faExpand`) en bas à droite → **ouvre directement sur la carte** (`/?lat=<lat>&lng=<lng>&zoom=17`, centrage sans détails, géré par `pendingCenterRef` dans `MapPage`) ; corps de la carte : nom, description (clampée), **dernier commentaire** (si présent), auteur/avatar + date, compteurs 💬/📷. Clic sur la carte → **drawer de détail sur place** (`PoiDrawer`, photos/commentaires réutilisés) + bouton **« Voir sur la carte »** (`onViewOnMap`).
 
 ## Hors-ligne & cache-first (PWA, implémenté)
 
@@ -251,15 +251,14 @@ volumes:
 | **Contrôle Carte/Satellite custom** (`MapTypeToggle` dans la Navbar, contrôle natif désactivé) | ✅ implémenté |
 | **Carte sans textures dupliquées** (`minZoom` dynamique + `restriction` `strictBounds`) | ✅ implémenté |
 | Fiche POI (drawer animé, commentaires, photos, bouton Google Maps, suppression) | ✅ implémenté |
-| Ajout de POI (placement clic + formulaire) | ✅ implémenté |
+| Ajout de POI (clic sur la carte → formulaire, sans FAB ni mode) | ✅ implémenté |
 | Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
 | **Dark mode** : toggle ☀️/🌙 visible (Navbar + pages auth) + persistance (`fihspot_theme`) + **la carte Google Maps suit le thème** (`colorScheme` DARK/LIGHT, recréée au toggle, vue préservée) | ✅ implémenté |
-| **FAB masqué quand une fiche POI est ouverte** | ✅ implémenté |
-| **Localisation utilisateur** : bouton 🎯 au-dessus du FAB + point bleu pulsant + centrage | ✅ implémenté |
+| **Localisation utilisateur** : bouton 🎯 (bas droite) + point bleu pulsant + centrage | ✅ implémenté |
 | **Recherche ville/lieu** (Nominatim, debounce, dropdown, panTo + marqueur) | ✅ implémenté |
 | **Page profil** (`/profile`) : avatar custom, stats, onglets points/commentaires/photos | ✅ implémenté |
 | **Clic profil → POI sur la carte** (`/?poi=` + panTo + ouverture fiche) | ✅ implémenté |
-| **Page POIs** (`/pois`) : grille + mini-cartes (Static API, fallback) + recherche + tri + drawer détail + bouton « Voir sur la carte » | ✅ implémenté |
+| **Page POIs** (`/pois`) : grille + mini-cartes (Static API, fallback) + recherche + tri + drawer détail + bouton « Voir sur la carte » + bouton « agrandir » (→ carte, centrage `?lat&lng&zoom`) | ✅ implémenté |
 | **Catégories supprimées de l'UI** (POI = pêche uniquement) : icône **poisson** `faFish` sur les marqueurs + fallback des mini-cartes ; champ `category` conservé en DB mais non utilisé | ✅ implémenté |
 | **Dernier commentaire** dans la liste (`?lastComment=1` sur `GET /api/pois`) | ✅ implémenté |
 | **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
