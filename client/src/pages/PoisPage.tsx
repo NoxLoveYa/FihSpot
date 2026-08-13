@@ -50,7 +50,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
       }}
       className="group flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-white text-left shadow-soft transition-all hover:-translate-y-1 hover:shadow-float dark:bg-slate-800"
     >
-      <div className="relative h-36 overflow-hidden">
+      <div className="relative aspect-[2/1] w-full overflow-hidden">
         {mapUrl && !imgError ? (
           <img
             src={mapUrl}
@@ -239,7 +239,7 @@ export function PoisPage() {
                   <PoisCard
                     poi={poi}
                     onClick={() => setSelectedId(poi.id)}
-                    onViewOnMap={() => navigate(`/?lat=${poi.lat}&lng=${poi.lng}&zoom=17`)}
+                    onViewOnMap={() => navigate(`/?poi=${poi.id}`)}
                   />
                 </motion.div>
               ))}

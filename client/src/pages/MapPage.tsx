@@ -159,7 +159,11 @@ export function MapPage() {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <Navbar mapType={mapType} onMapTypeChange={setMapType} />
+      <Navbar
+        mapType={mapType}
+        onMapTypeChange={setMapType}
+        search={!selectedId ? <SearchBar onSelect={handleSearchSelect} /> : undefined}
+      />
       <GoogleMapView
         pois={pois}
         selectedId={selectedId}
@@ -176,8 +180,6 @@ export function MapPage() {
         }}
         onPick={handlePick}
       />
-
-      {!selectedId && <SearchBar onSelect={handleSearchSelect} />}
 
       {initialLoading && (
         <div className="pointer-events-none absolute inset-0 z-[1100] flex items-center justify-center">

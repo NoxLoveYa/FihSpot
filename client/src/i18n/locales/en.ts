@@ -50,6 +50,8 @@ export const en = {
   'poi.photos': 'Photos ({{count}})',
   'poi.addPhoto': '+ Add',
   'poi.noPhotos': 'No photos yet',
+  'poi.viewPhoto': 'View photo',
+  'poi.downloadPhoto': 'Download photo',
   'poi.deletePhoto': 'Delete photo',
   'poi.comments': 'Comments ({{count}})',
   'poi.deleteComment': 'Delete',

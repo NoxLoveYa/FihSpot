@@ -15,7 +15,7 @@ const poiInclude = {
     orderBy: { createdAt: 'asc' as const },
   },
   photos: {
-    include: { user: { select: { id: true, name: true } } },
+    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     orderBy: { createdAt: 'asc' as const },
   },
 };
@@ -205,7 +205,7 @@ router.post('/:id/photos', requireAuth, upload.single('photo'), async (req, res,
         poiId: poi.id,
         userId: req.user!.id,
       },
-      include: { user: { select: { id: true, name: true } } },
+      include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     });
 
     res.status(201).json({ photo });

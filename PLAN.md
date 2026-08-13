@@ -57,7 +57,7 @@ FihSpot/
 │       │   └── ThemeContext.tsx  # thème light/dark persisté (localStorage) + class "dark" ; pilote aussi le colorScheme de la carte
 │       ├── hooks/useMediaQuery.ts
 │       ├── components/
-│       │   ├── Navbar.tsx        # overlay glassmorphism sur la carte (chip utilisateur → profil) + bouton "Explorer" → /pois
+│       │   ├── Navbar.tsx        # barre solide + compacte sur petits écrans (< lg) : icônes uniformes (h-10 w-10), type de carte icônes seules ; flottante glassmorphism sur ≥ lg (fond transparent, boutons verre) ; déconnexion en icône mobile / texte desktop
 │       │   ├── ThemeToggle.tsx   # bouton ☀️/🌙 (basculer le thème, y compris celui de la carte)
 │       │   ├── LanguageToggle.tsx # bouton EN/FR (basculer la langue, persisté)
 │       │   ├── MapTypeToggle.tsx # contrôle custom Carte/Satellite (remplace le contrôle natif Google Maps)
@@ -65,7 +65,7 @@ FihSpot/
 │       │   ├── UserLocationButton.tsx # localisation (navigator.geolocation) + centrage (bas droite)
 │       │   ├── OfflineBanner.tsx # bandeau "Hors ligne — données en cache"
 │       │   ├── GoogleMapView.tsx # carte Google Maps (Advanced Markers, bounds, géoloc, ajout au clic, colorScheme, minZoom + restriction, mapType)
-│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh + bouton "Voir sur la carte" (optionnel)
+│       │   ├── PoiDrawer.tsx     # fiche POI (drawer mobile / side-panel desktop) + fade au refresh + bouton "Voir sur la carte" (optionnel) + avatars commentaires + photos agrandissables (lightbox, auteur)
 │       │   ├── AddPoiPanel.tsx   # formulaire création après placement sur la carte
 │       │   ├── GoogleButton.tsx  # Google Identity Services (bouton "Continuer avec Google")
 │       │   ├── ProtectedRoute.tsx
@@ -178,7 +178,7 @@ volumes:
 - **Mobile-first**, carte plein écran comme point focal ; fond clair neutre (`#f8fafc`), accent **indigo** (`brand-600`), police **Inter**.
 - **Tokens Tailwind** dans `tailwind.config.js` : palette `brand`, rayons (`rounded-2xl`/`3xl`), ombres `soft`/`float`, animations `fade-in`/`slide-up`.
 - **Dark mode** : implémenté — `ThemeContext` (stratégie `class`), bascule ☀️/🌙 visible dans la **Navbar** et sur les pages Login/Register, **persistée** (`fihspot_theme`) avec fallback `prefers-color-scheme` + script anti-flash dans `index.html`. **La carte Google Maps suit le thème** : `colorScheme: 'DARK'/'LIGHT'` (option d'initialisation uniquement) → la carte est **recréée** au toggle (vue centrée/zoom préservés via `viewRef`, auto-localisation ne se relance pas grâce à `autoLocatedRef`).
-- Overlays glassmorphism (Navbar, bannière "chargement"), focus rings accessibles, micro-hovers.
+- Overlays glassmorphism (bannière "chargement"), focus rings accessibles, micro-hovers. **Navbar** : sur écran étroit (< `lg`) barre **solide** (fond opaque `bg-white`/`dark:bg-slate-800`, bordure basse) avec **icônes uniformes** bien espacées (pas de hamburger) ; sur `≥ lg` elle **flotte** au-dessus de la carte (fond transparent, boutons verre `bg-white/80` + `backdrop-blur`).
 
 ### Internationalisation (i18n) — implémenté
 - **Langue par défaut : anglais** ; détection automatique : `localStorage['fihspot_lang']` → sinon `navigator.language` commençant par `fr` → **français**, sinon **anglais**. Initialisé dans `client/src/i18n/index.ts` (i18next + react-i18next).
@@ -251,6 +251,7 @@ volumes:
 | **Contrôle Carte/Satellite custom** (`MapTypeToggle` dans la Navbar, contrôle natif désactivé) | ✅ implémenté |
 | **Carte sans textures dupliquées** (`minZoom` dynamique + `restriction` `strictBounds`) | ✅ implémenté |
 | Fiche POI (drawer animé, commentaires, photos, bouton Google Maps, suppression) | ✅ implémenté |
+| **Photos agrandissables** (lightbox plein écran, bouton `faExpand`, auteur + date) + **avatars dans les commentaires** (`avatarUrl` des auteurs incluse par l'API) | ✅ implémenté |
 | Ajout de POI (clic sur la carte → formulaire, sans FAB ni mode) | ✅ implémenté |
 | Design responsive + animations (transitions, toasts, skeleton, dark mode) | ✅ implémenté |
 | **Dark mode** : toggle ☀️/🌙 visible (Navbar + pages auth) + persistance (`fihspot_theme`) + **la carte Google Maps suit le thème** (`colorScheme` DARK/LIGHT, recréée au toggle, vue préservée) | ✅ implémenté |

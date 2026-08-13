@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faExpand, faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +35,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
   const [comment, setComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -225,7 +226,30 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                       <div className="grid grid-cols-3 gap-2">
                         {poi.photos.map((photo) => (
                           <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-slate-100">
-                            <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            <button
+                              onClick={() => setViewingPhoto(photo)}
+                              aria-label={t('poi.viewPhoto')}
+                              className="block h-full w-full"
+                            >
+                              <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            </button>
+                            <button
+                              onClick={() => setViewingPhoto(photo)}
+                              aria-label={t('poi.viewPhoto')}
+                              title={t('poi.viewPhoto')}
+                              className="absolute bottom-1.5 right-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-opacity group-hover:opacity-100 md:opacity-0"
+                            >
+                              <FontAwesomeIcon icon={faExpand} className="h-3.5 w-3.5" />
+                            </button>
+                            <a
+                              href={photo.url}
+                              download
+                              aria-label={t('poi.downloadPhoto')}
+                              title={t('poi.downloadPhoto')}
+                              className="absolute bottom-1.5 left-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-opacity group-hover:opacity-100 md:opacity-0"
+                            >
+                              <FontAwesomeIcon icon={faDownload} className="h-3.5 w-3.5" />
+                            </a>
                             {user?.id === photo.user.id && (
                               <button
                                 onClick={() => deletePhoto(photo)}
@@ -248,9 +272,13 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                     <ul className="space-y-3">
                       {poi.comments.map((c) => (
                         <li key={c.id} className="flex items-start gap-3">
-                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/60">
-                            {c.user.name.charAt(0).toUpperCase()}
-                          </span>
+                          {c.user.avatarUrl ? (
+                            <img src={c.user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/60">
+                              {c.user.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
                           <div className="flex-1 rounded-2xl rounded-tl-sm bg-slate-100 px-3 py-2 dark:bg-slate-700/50">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{c.user.name}</span>
@@ -298,6 +326,66 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
               </motion.div>
             )}
           </motion.aside>
+
+          <AnimatePresence>
+            {viewingPhoto && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setViewingPhoto(null)}
+                className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/85 p-4"
+              >
+                <button
+                  onClick={() => setViewingPhoto(null)}
+                  aria-label={t('poi.close')}
+                  className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+                <a
+                  href={viewingPhoto.url}
+                  download
+                  aria-label={t('poi.downloadPhoto')}
+                  title={t('poi.downloadPhoto')}
+                  className="absolute bottom-4 right-4 grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 sm:bottom-auto sm:right-16 sm:top-4"
+                >
+                  <FontAwesomeIcon icon={faDownload} className="h-5 w-5" />
+                </a>
+                <motion.figure
+                  initial={{ scale: 0.92, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.92, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-w-full"
+                >
+                  <img
+                    src={viewingPhoto.url}
+                    alt=""
+                    className="max-h-[70dvh] w-auto rounded-2xl object-contain shadow-float"
+                  />
+                  <figcaption className="mt-3 flex items-center gap-3">
+                    {viewingPhoto.user.avatarUrl ? (
+                      <img
+                        src={viewingPhoto.user.avatarUrl}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover ring-2 ring-white/20"
+                      />
+                    ) : (
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">
+                        {viewingPhoto.user.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-white">{viewingPhoto.user.name}</p>
+                      <p className="text-xs text-white/60">{formatDate(viewingPhoto.createdAt)}</p>
+                    </div>
+                  </figcaption>
+                </motion.figure>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>

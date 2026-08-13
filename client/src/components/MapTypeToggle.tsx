@@ -22,7 +22,7 @@ export function MapTypeToggle({ mapType, onChange, className = '' }: MapTypeTogg
     <div
       role="group"
       aria-label={t('map.mapType.label')}
-      className={`flex items-center gap-1 rounded-xl bg-white/80 p-1 shadow-soft backdrop-blur-md dark:bg-slate-800/80 ${className}`}
+      className={`flex shrink-0 items-center gap-1 rounded-xl bg-white/80 p-1 shadow-soft backdrop-blur-md dark:bg-slate-800/80 ${className}`}
     >
       {buttons.map((b) => (
         <button
@@ -30,14 +30,14 @@ export function MapTypeToggle({ mapType, onChange, className = '' }: MapTypeTogg
           onClick={() => onChange(b.value)}
           aria-pressed={mapType === b.value}
           title={b.label}
-          className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors active:scale-95 ${
+          className={`flex h-8 w-9 items-center justify-center gap-1.5 rounded-lg px-0 text-xs font-semibold transition-colors active:scale-95 lg:w-auto lg:px-2.5 ${
             mapType === b.value
               ? 'bg-brand-600 text-white shadow-float'
               : 'text-slate-600 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-slate-700'
           }`}
         >
           <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{b.label}</span>
+          <span className="hidden lg:inline">{b.label}</span>
         </button>
       ))}
     </div>

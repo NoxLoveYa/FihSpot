@@ -30,7 +30,7 @@ export interface Photo {
   id: string;
   url: string;
   createdAt: string;
-  user: Pick<User, 'id' | 'name'>;
+  user: Pick<User, 'id' | 'name' | 'avatarUrl'>;
 }
 
 export interface PoI extends Omit<PoISummary, '_count' | 'createdBy'> {
