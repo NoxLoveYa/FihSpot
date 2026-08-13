@@ -110,6 +110,8 @@ export interface AdminPoi {
   name: string;
   description: string | null;
   category: string | null;
+  lat: number;
+  lng: number;
   demo: boolean;
   createdAt: string;
   createdBy: Pick<User, 'id' | 'name' | 'avatarUrl'>;

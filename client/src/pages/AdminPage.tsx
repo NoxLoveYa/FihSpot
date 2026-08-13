@@ -6,7 +6,9 @@ import {
   faArrowLeft,
   faCamera,
   faComment,
+  faFish,
   faMapPin,
+  faPenToSquare,
   faShieldHalved,
   faTrash,
   faUserGroup,
@@ -14,6 +16,7 @@ import {
 import type { AdminModerationComment, AdminModerationPhoto, AdminPoi, AdminStatsResponse, AdminUser, Role } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { staticMapUrl } from '../lib/googleMaps';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Spinner, Skeleton } from '../components/Spinner';
@@ -106,6 +109,127 @@ function ConfirmModal({
             {confirmLabel}
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPoiCard({
+  poi,
+  onEdit,
+  onToggleDemo,
+  onDelete,
+  busy,
+}: {
+  poi: AdminPoi;
+  onEdit: () => void;
+  onToggleDemo: () => void;
+  onDelete: () => void;
+  busy: boolean;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
+  const mapUrl = staticMapUrl(poi.lat, poi.lng, '600x300');
+
+  return (
+    <div className="glass-strong group flex cursor-pointer flex-col overflow-hidden rounded-3xl text-left transition-all hover:-translate-y-1 hover:shadow-float">
+      <div className="relative aspect-[2/1] w-full overflow-hidden">
+        {mapUrl && !imgError ? (
+          <img
+            src={mapUrl}
+            alt=""
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #2563eb22, #2563eb55)' }}
+          >
+            <FontAwesomeIcon icon={faFish} className="h-10 w-10 text-white/90" />
+          </div>
+        )}
+        {poi.demo && (
+          <span className="absolute left-2 top-2 z-10 rounded-full bg-brand-600/90 px-2.5 py-1 text-[11px] font-semibold text-white shadow-soft backdrop-blur">
+            {t('admin.pois.demo')}
+          </span>
+        )}
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleDemo();
+            }}
+            disabled={busy}
+            title={poi.demo ? 'Un-demo' : 'Demo'}
+            className="glass grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
+          >
+            <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            disabled={busy}
+            title={t('admin.pois.edit')}
+            className="glass grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
+          >
+            <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            disabled={busy}
+            title={t('admin.pois.delete')}
+            className="grid h-9 w-9 place-items-center rounded-full bg-rose-600/90 text-white shadow-soft transition-all hover:scale-105 hover:bg-rose-600 active:scale-95"
+          >
+            <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <h3 className="line-clamp-1 text-base font-bold text-slate-800 dark:text-slate-100">{poi.name}</h3>
+        {poi.description ? (
+          <p className="line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{poi.description}</p>
+        ) : (
+          <p className="text-sm italic text-slate-400 dark:text-slate-500">{t('pois.noDescription')}</p>
+        )}
+
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/user/${poi.createdBy.id}`);
+            }}
+            className="flex min-w-0 items-center gap-2"
+          >
+            {poi.createdBy.avatarUrl ? (
+              <img src={poi.createdBy.avatarUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+            ) : (
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-900/60">
+                {poi.createdBy.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span className="truncate text-xs text-slate-400 hover:text-brand-600">{poi.createdBy.name}</span>
+          </button>
+          <div className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <FontAwesomeIcon icon={faComment} className="h-3 w-3" />
+              {poi._count.comments}
+            </span>
+            <span className="flex items-center gap-1">
+              <FontAwesomeIcon icon={faCamera} className="h-3 w-3" />
+              {poi._count.photos}
+            </span>
+          </div>
+        </div>
+        <span className="text-[11px] text-slate-300 dark:text-slate-500">{formatDate(poi.createdAt)}</span>
       </div>
     </div>
   );
@@ -581,59 +705,32 @@ export function AdminPage() {
             </div>
 
             {poisLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="glass-strong overflow-hidden rounded-3xl">
+                    <Skeleton className="h-36 w-full rounded-none" />
+                    <div className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-4/5" />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : pois.length === 0 ? (
               <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.pois.noResults')}</p>
             ) : (
               <>
-                <div className="glass-strong divide-y divide-slate-200/60 overflow-hidden rounded-2xl dark:divide-slate-700">
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {pois.map((p) => (
-                    <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                          {p.name}
-                          {p.demo && (
-                            <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[11px] font-semibold text-brand-600 dark:text-brand-300">
-                              {t('admin.pois.demo')}
-                            </span>
-                          )}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {p.createdBy.name} · {p._count.comments} {t('profile.comments')} · {p._count.photos} {t('profile.photos')} ·{' '}
-                          {formatDate(p.createdAt)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button
-                          variant="secondary"
-                          onClick={() => setEditingPoi({ poi: p, name: p.name, description: p.description ?? '', category: p.category ?? '', demo: p.demo })}
-                          disabled={busyPoi === p.id}
-                          className="min-h-[36px] px-3 py-1.5 text-xs"
-                        >
-                          {t('admin.pois.edit')}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => togglePoiDemo(p)}
-                          disabled={busyPoi === p.id}
-                          className="min-h-[36px] px-3 py-1.5 text-xs"
-                        >
-                          {p.demo ? 'Un-demo' : 'Demo'}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          onClick={() => setDeletingPoi(p)}
-                          disabled={busyPoi === p.id}
-                          className="min-h-[36px] px-3 py-1.5 text-xs"
-                        >
-                          {t('admin.pois.delete')}
-                        </Button>
-                      </div>
-                    </div>
+                    <AdminPoiCard
+                      key={p.id}
+                      poi={p}
+                      busy={busyPoi === p.id}
+                      onEdit={() => setEditingPoi({ poi: p, name: p.name, description: p.description ?? '', category: p.category ?? '', demo: p.demo })}
+                      onToggleDemo={() => togglePoiDemo(p)}
+                      onDelete={() => setDeletingPoi(p)}
+                    />
                   ))}
                 </div>
                 <p className="mt-3 text-center text-xs text-slate-400">{t('admin.pois.total', { count: poiTotal })}</p>
