@@ -24,7 +24,7 @@ export function Navbar({ mapType, onMapTypeChange, search }: NavbarProps) {
   // Small screens: solid compact bar (uniform icons), search wraps on its own line.
   // lg+: floating glass bar; search sits on the same line, Explore right before it.
   const btn =
-    'grid h-10 w-10 shrink-0 place-items-center rounded-xl text-base text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 lg:flex lg:h-10 lg:w-auto lg:items-center lg:justify-center lg:gap-1.5 lg:px-3 lg:py-0 lg:text-sm lg:font-semibold lg:bg-white/80 lg:shadow-soft lg:backdrop-blur-md lg:hover:bg-white dark:lg:bg-slate-800/80 dark:lg:hover:bg-slate-700';
+    'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/80 text-base text-slate-600 shadow-soft backdrop-blur-md transition-colors hover:bg-white dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700 lg:flex lg:h-10 lg:w-auto lg:items-center lg:justify-center lg:gap-1.5 lg:px-3 lg:py-0 lg:text-sm lg:font-semibold';
 
   // Profile chip: no background (bare).
   const bare =
@@ -32,7 +32,7 @@ export function Navbar({ mapType, onMapTypeChange, search }: NavbarProps) {
 
   // FihSpot logo: same glassy background as Explore (btn) on lg+.
   const logoBtn =
-    'grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-800 transition-colors hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-700 sm:flex sm:h-10 sm:w-auto sm:items-center sm:gap-2 sm:px-3 sm:py-0 sm:text-base sm:font-bold lg:bg-white/80 lg:shadow-soft lg:backdrop-blur-md lg:hover:bg-white dark:lg:bg-slate-800/80 dark:lg:hover:bg-slate-700';
+    'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/80 text-slate-800 shadow-soft backdrop-blur-md transition-colors hover:bg-white dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-700 sm:flex sm:h-10 sm:w-auto sm:items-center sm:gap-2 sm:px-3 sm:py-0 sm:text-base sm:font-bold';
 
   const logoutBtn = () => {
     logout();

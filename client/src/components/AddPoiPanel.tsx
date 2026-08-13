@@ -69,7 +69,7 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
         animate={isDesktop ? { x: 0 } : { y: 0 }}
         exit={isDesktop ? { x: '100%' } : { y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-        className={`fixed z-[1400] flex flex-col gap-4 overflow-hidden rounded-t-3xl bg-white p-5 shadow-soft dark:bg-slate-800 md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
+        className={`fixed z-[1400] flex flex-col gap-4 overflow-hidden rounded-t-3xl bg-white/85 p-5 shadow-float backdrop-blur-md dark:bg-slate-800/85 md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
           isDesktop ? 'right-0 w-[420px]' : 'inset-x-0 bottom-0'
         }`}
       >
