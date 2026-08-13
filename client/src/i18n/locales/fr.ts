@@ -133,6 +133,12 @@ export const fr = {
 
   'scan.button': 'Scanner les plans d\'eau',
   'scan.scanning': 'Analyse de la zone…',
+  'scan.preview': 'Carte utilisée pour le scan',
+  'scan.color': 'Couleur d\'eau détectée',
+  'scan.size': 'Taille minimale de l\'eau',
+  'scan.size.sensitive': 'Petite',
+  'scan.size.default': 'Moyenne',
+  'scan.size.strict': 'Grande',
   'scan.candidates': 'Plans d\'eau potentiels ({{count}})',
   'scan.spot': 'Plan d\'eau potentiel',
   'scan.add': 'Ajouter comme point',

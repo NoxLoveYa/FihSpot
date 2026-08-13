@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDownload, faExpand, faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faExpand, faFish, faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
+import { staticMapUrl } from '../lib/googleMaps';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -38,6 +39,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
   const [sendingComment, setSendingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [mapImgError, setMapImgError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -57,6 +59,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
 
   useEffect(() => {
     setPoi(null);
+    setMapImgError(false);
     if (poiId) load();
   }, [poiId, load]);
 
@@ -189,6 +192,39 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                 </div>
 
                 <div className="flex-1 space-y-6 overflow-y-auto p-4 safe-bottom">
+                  {(() => {
+                    const mapUrl = staticMapUrl(poi.lat, poi.lng, '640x320');
+                    return (
+                      <a
+                        href={`https://www.google.com/maps?q=${poi.lat},${poi.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative block aspect-[2/1] w-full overflow-hidden rounded-2xl"
+                      >
+                        {mapUrl && !mapImgError ? (
+                          <img
+                            src={mapUrl}
+                            alt=""
+                            loading="lazy"
+                            onError={() => setMapImgError(true)}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="flex h-full w-full items-center justify-center"
+                            style={{ background: `linear-gradient(135deg, #2563eb22, #2563eb55)` }}
+                          >
+                            <FontAwesomeIcon icon={faFish} className="h-10 w-10 text-white/90" />
+                          </div>
+                        )}
+                        <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                          <FontAwesomeIcon icon={faMapPin} className="mr-1 h-3 w-3" />
+                          {poi.lat.toFixed(4)}, {poi.lng.toFixed(4)}
+                        </span>
+                      </a>
+                    );
+                  })()}
+
                   {poi.description && <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{poi.description}</p>}
 
                   <div className="flex flex-col gap-2">

@@ -9,6 +9,8 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { scanForWater, haversineKm } from '../lib/waterScan';
+import type { ScanSensitivity, DetectedWater } from '../lib/waterScan';
+import { SCAN_SENSITIVITIES } from '../lib/waterScan';
 import { GoogleMapView } from '../components/GoogleMapView';
 import type { MapType } from '../components/MapTypeToggle';
 import { PoiDrawer } from '../components/PoiDrawer';
@@ -19,6 +21,7 @@ import { SearchPanel } from '../components/SearchPanel';
 import { SavedSearchesPanel } from '../components/SavedSearchesPanel';
 import { Navbar } from '../components/Navbar';
 import { FullScreenLoader, Spinner } from '../components/Spinner';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { getPreviousPath } from '../navigation';
 
 function zoomForRadius(radiusKm: number): number {
@@ -29,6 +32,7 @@ export function MapPage() {
   const { t } = useTranslation();
   const { loading } = useAuth();
   const { toast } = useToast();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
   const mapRef = useRef<google.maps.Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
@@ -58,9 +62,29 @@ export function MapPage() {
   const [savedLoading, setSavedLoading] = useState(false);
 
   // Pond scan state
-  const [candidates, setCandidates] = useState<LatLng[]>([]);
+  const [candidates, setCandidates] = useState<DetectedWater[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanPreviewUrl, setScanPreviewUrl] = useState<string | null>(null);
+  const [scanPreviewSize, setScanPreviewSize] = useState<{ width: number; height: number } | null>(null);
+  const scanPreviewRef = useRef<string | null>(null);
   const lastScanRef = useRef<string | null>(null);
+  const [sensitivity, setSensitivity] = useState<ScanSensitivity>(() => {
+    const saved = localStorage.getItem('fihspot_scan_sensitivity') as ScanSensitivity | null;
+    return saved && SCAN_SENSITIVITIES.includes(saved) ? saved : 'default';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('fihspot_scan_sensitivity', sensitivity);
+  }, [sensitivity]);
+
+  const revokeScanPreview = useCallback(() => {
+    if (scanPreviewRef.current) {
+      URL.revokeObjectURL(scanPreviewRef.current);
+      scanPreviewRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => revokeScanPreview(), [revokeScanPreview]);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -141,36 +165,46 @@ export function MapPage() {
     setSearchPois([]);
     setActiveSearchId(null);
     setCandidates([]);
+    setScanPreviewUrl(null);
+    setScanPreviewSize(null);
+    revokeScanPreview();
     lastScanRef.current = null;
-  }, []);
+  }, [revokeScanPreview]);
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number; radiusKm: number }) => {
       if (!mapRef.current) return;
       setScanning(true);
       try {
-        const found = await scanForWater(area);
+        const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity);
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
+        revokeScanPreview();
+        scanPreviewRef.current = previewUrl;
         setCandidates(filtered);
+        setScanPreviewUrl(previewUrl);
+        setScanPreviewSize({ width, height });
       } catch (e) {
         console.error('pond scan failed', e);
-        toast(t('scan.error'), 'error');
+        revokeScanPreview();
+        setScanPreviewUrl(null);
+        setScanPreviewSize(null);
         setCandidates([]);
+        toast(t('scan.error'), 'error');
       } finally {
         setScanning(false);
       }
     },
-    [searchPois, toast, t],
+    [sensitivity, searchPois, revokeScanPreview, toast, t],
   );
 
   useEffect(() => {
     if (!searchArea) return;
-    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${searchArea.radiusKm}`;
+    const key = `${searchArea.lat.toFixed(4)},${searchArea.lng.toFixed(4)},${searchArea.radiusKm},${sensitivity}`;
     if (lastScanRef.current === key) return;
     lastScanRef.current = key;
     runScan(searchArea);
-  }, [searchArea, runScan]);
+  }, [searchArea, sensitivity, runScan]);
 
   const handlePick = useCallback(
     (latlng: LatLng) => {
@@ -201,16 +235,50 @@ export function MapPage() {
     setUserPosition(position);
   }, []);
 
+  // Centers the map on a POI, keeping it visible next to the open panel
+  // (left of the 420px side panel on desktop, above the bottom sheet on mobile).
+  const panToPoi = useCallback(
+    (lat: number, lng: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const rect = map.getDiv().getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const tx = isDesktop ? Math.max(10, (w - 420) / 2) : w / 2;
+      const ty = isDesktop ? h / 2 : h * 0.16;
+      map.setCenter({ lat, lng });
+      map.panBy(w / 2 - tx, h / 2 - ty);
+      if ((map.getZoom() ?? 0) < 14) map.setZoom(14);
+    },
+    [isDesktop],
+  );
+
+  const focusPoi = useCallback(
+    (id: string) => {
+      const poi = [...pois, ...searchPois].find((p) => p.id === id);
+      if (poi) {
+        panToPoi(poi.lat, poi.lng);
+      } else {
+        api
+          .getPoi(id)
+          .then(({ poi: p }) => panToPoi(p.lat, p.lng))
+          .catch(() => {});
+      }
+    },
+    [pois, searchPois, panToPoi],
+  );
+
+  useEffect(() => {
+    if (selectedId) focusPoi(selectedId);
+  }, [selectedId, focusPoi]);
+
   const handleMapReady = useCallback(
     (map: google.maps.Map) => {
       mapRef.current = map;
       if (pendingFocus) {
         api
           .getPoi(pendingFocus)
-          .then(({ poi }) => {
-            map.panTo({ lat: poi.lat, lng: poi.lng });
-            map.setZoom(15);
-          })
+          .then(({ poi }) => panToPoi(poi.lat, poi.lng))
           .catch(() => {});
         setPendingFocus(null);
       } else if (pendingCenterRef.current) {
@@ -242,7 +310,7 @@ export function MapPage() {
         );
       }
     },
-    [pendingFocus, shouldAutoLocate, toast, t],
+    [pendingFocus, panToPoi, shouldAutoLocate, toast, t],
   );
 
   const loadSavedSearches = useCallback(async () => {
@@ -384,6 +452,10 @@ export function MapPage() {
         activeSearchId={activeSearchId}
         candidates={candidates}
         scanning={scanning}
+        previewUrl={scanPreviewUrl}
+        previewSize={scanPreviewSize}
+        sensitivity={sensitivity}
+        onSensitivityChange={setSensitivity}
         onScan={runScan}
         onAddCandidate={handleAddCandidate}
         onRadiusChange={handleRadiusChange}

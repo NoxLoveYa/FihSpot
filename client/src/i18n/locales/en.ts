@@ -133,6 +133,12 @@ export const en = {
 
   'scan.button': 'Scan for ponds',
   'scan.scanning': 'Scanning the area…',
+  'scan.preview': 'Map used for the scan',
+  'scan.color': 'Sampled water color',
+  'scan.size': 'Minimum water size',
+  'scan.size.sensitive': 'Small',
+  'scan.size.default': 'Medium',
+  'scan.size.strict': 'Large',
   'scan.candidates': 'Potential ponds ({{count}})',
   'scan.spot': 'Potential pond',
   'scan.add': 'Add as point',

@@ -14,7 +14,8 @@ export function haversineKm(a: LatLng, b: LatLng): number {
 }
 
 // Dark-theme water color as rendered by the interactive map (#93dbee).
-const DARK_WATER = { r: 147, g: 219, b: 238 };
+export const SCAN_WATER_COLOR = { hex: '#93dbee', r: 147, g: 219, b: 238 };
+const DARK_WATER = { r: SCAN_WATER_COLOR.r, g: SCAN_WATER_COLOR.g, b: SCAN_WATER_COLOR.b };
 
 export function zoomForRadius(lat: number, radiusKm: number, size: number): number {
   const metersPerPx = (2 * radiusKm * 1000) / (size * 0.85);
@@ -42,6 +43,49 @@ export interface DetectedWater {
   lat: number;
   lng: number;
   areaPx: number;
+  /** Pixel centroid in the analyzed image (for the preview overlay). */
+  px: number;
+  py: number;
+}
+
+export interface ScanResult {
+  candidates: DetectedWater[];
+  /** Blob URL of the exact styled static map that was analyzed. */
+  previewUrl: string;
+  /** Analyzed image dimensions (e.g. 1280×1280 with scale=2). */
+  width: number;
+  height: number;
+}
+
+export type ScanSensitivity = 'sensitive' | 'default' | 'strict';
+
+export const SCAN_SENSITIVITIES: ScanSensitivity[] = ['sensitive', 'default', 'strict'];
+
+interface SensitivityFactors {
+  minSideM: number;
+  minAreaM2: number;
+}
+
+// Minimum pond size in physical units (meters). Kept constant whatever the
+// search radius, so the same ponds are detected at 2 km and 20 km.
+const SCAN_SENSITIVITY_FACTORS: Record<ScanSensitivity, SensitivityFactors> = {
+  sensitive: { minSideM: 30, minAreaM2: 700 },
+  default: { minSideM: 50, minAreaM2: 2000 },
+  strict: { minSideM: 100, minAreaM2: 8000 },
+};
+
+/**
+ * Pixel thresholds used to consider a water body "a pond", converted from the
+ * configured physical size given the meters-per-pixel of the scanned image.
+ * Larger values only accept bigger water areas (rivers stay filtered by minSide).
+ */
+export function scanThresholds(sensitivity: ScanSensitivity, metersPerPx: number) {
+  const f = SCAN_SENSITIVITY_FACTORS[sensitivity] ?? SCAN_SENSITIVITY_FACTORS.default;
+  const mpp = Math.max(0.5, metersPerPx);
+  return {
+    minArea: Math.max(20, Math.round(f.minAreaM2 / (mpp * mpp))),
+    minSide: Math.max(3, Math.round(f.minSideM / mpp)),
+  };
 }
 
 export interface WaterRegion {
@@ -203,12 +247,13 @@ function selectWaterCandidates(
 
 async function regionsFromImageData(
   img: ImageData,
+  sensitivity: ScanSensitivity,
+  metersPerPx: number,
 ): Promise<{ regions: WaterRegion[]; totalWaterPx: number }> {
   const W = img.width;
   const H = img.height;
   const tolerance = 6; // exact #93dbee, with a small anti-aliasing allowance
-  const minArea = Math.max(60, (W * H * 0.0002) | 0);
-  const minSide = Math.max(6, Math.round(Math.min(W, H) * 0.01));
+  const { minArea, minSide } = scanThresholds(sensitivity, metersPerPx);
   return analyzeWater(img.data, W, H, [DARK_WATER], tolerance, minArea, minSide, {
     blueDominance: false,
   });
@@ -218,7 +263,10 @@ async function regionsFromImageData(
  * Fetches a static map of the search area whose water is recolored to exactly
  * the dark-theme water color (#93dbee), then detects ponds of that exact color.
  */
-export async function scanForWater(area: { lat: number; lng: number; radiusKm: number }): Promise<DetectedWater[]> {
+export async function scanForWater(
+  area: { lat: number; lng: number; radiusKm: number },
+  sensitivity: ScanSensitivity = 'default',
+): Promise<ScanResult> {
   const size = 640;
   const zoom = zoomForRadius(area.lat, area.radiusKm, size);
   const url = staticMapForScan({ lat: area.lat, lng: area.lng }, zoom, size);
@@ -233,11 +281,15 @@ export async function scanForWater(area: { lat: number; lng: number; radiusKm: n
   if (!res.ok) throw new Error(`Map request failed (${res.status})`);
 
   const blob = await res.blob();
+  // Kept alive and returned as `previewUrl` — the caller revokes it.
   const objectUrl = URL.createObjectURL(blob);
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Could not decode the map image'));
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Could not decode the map image'));
+    };
     img.src = objectUrl;
   });
 
@@ -245,18 +297,32 @@ export async function scanForWater(area: { lat: number; lng: number; radiusKm: n
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('Canvas unavailable');
+  if (!ctx) {
+    URL.revokeObjectURL(objectUrl);
+    throw new Error('Canvas unavailable');
+  }
   ctx.drawImage(image, 0, 0);
-  URL.revokeObjectURL(objectUrl);
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const { regions, totalWaterPx } = await regionsFromImageData(img);
+  // Ground resolution: the image spans 2 * radius across 85% of its width.
+  const metersPerPx = (2 * area.radiusKm * 1000) / (img.width * 0.85);
+  const { regions, totalWaterPx } = await regionsFromImageData(img, sensitivity, metersPerPx);
   const chosen = selectWaterCandidates(regions, totalWaterPx, img.width, img.height);
 
+  // The image is requested as `size` but may come back at a higher resolution
+  // (scale=2 → 2× pixels). World-coordinate offsets must be scaled down by the
+  // image/request pixel ratio, otherwise points land twice as far from center.
+  const worldPerImagePx = size / img.width;
   const worldCenter = latLngToWorld(area.lat, area.lng, zoom);
-  return chosen.map((r) => {
-    const wx = worldCenter.x + (r.cx - img.width / 2);
-    const wy = worldCenter.y + (r.cy - img.height / 2);
-    return { ...worldToLatLng(wx, wy, zoom), areaPx: r.areaPx };
-  });
+  const candidates = chosen
+    .map((r) => {
+      const wx = worldCenter.x + (r.cx - img.width / 2) * worldPerImagePx;
+      const wy = worldCenter.y + (r.cy - img.height / 2) * worldPerImagePx;
+      return { ...worldToLatLng(wx, wy, zoom), areaPx: r.areaPx, px: r.cx, py: r.cy };
+    })
+    // The static image is a square larger than the search circle; only report
+    // water bodies whose center is inside the requested radius.
+    .filter((c) => haversineKm(c, area) <= area.radiusKm);
+
+  return { candidates, previewUrl: objectUrl, width: img.width, height: img.height };
 }

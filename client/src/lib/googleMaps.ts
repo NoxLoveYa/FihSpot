@@ -49,7 +49,7 @@ export function staticMapForScan(center: LatLng, zoom: number, size: number): st
     center: `${center.lat},${center.lng}`,
     zoom: String(zoom),
     size: `${size}x${size}`,
-    scale: '1',
+    scale: '2',
     style: 'feature:water|element:geometry.fill|color:0x93dbee',
     key: API_KEY,
   });

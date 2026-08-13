@@ -20,10 +20,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import type { PoISummary, Search } from '../api/types';
 import type { LatLng } from '../lib/googleMaps';
+import type { DetectedWater, ScanSensitivity } from '../lib/waterScan';
+import { SCAN_SENSITIVITIES, SCAN_WATER_COLOR, haversineKm } from '../lib/waterScan';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { haversineKm } from '../lib/waterScan';
 import { Skeleton, Spinner } from './Spinner';
 import { Button } from './Button';
 
@@ -39,8 +40,12 @@ interface SearchPanelProps {
   pois: PoISummary[];
   loading: boolean;
   activeSearchId: string | null;
-  candidates: LatLng[];
+  candidates: DetectedWater[];
   scanning: boolean;
+  previewUrl: string | null;
+  previewSize: { width: number; height: number } | null;
+  sensitivity: ScanSensitivity;
+  onSensitivityChange: (sensitivity: ScanSensitivity) => void;
   onScan: (area: { lat: number; lng: number; radiusKm: number }) => void;
   onAddCandidate: (latlng: LatLng) => void;
   onRadiusChange: (radiusKm: number) => void;
@@ -59,6 +64,10 @@ export function SearchPanel({
   activeSearchId,
   candidates,
   scanning,
+  previewUrl,
+  previewSize,
+  sensitivity,
+  onSensitivityChange,
   onScan,
   onAddCandidate,
   onRadiusChange,
@@ -239,6 +248,27 @@ export function SearchPanel({
               </div>
             </div>
 
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t('scan.size')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SCAN_SENSITIVITIES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onSensitivityChange(s)}
+                    className={`min-h-[36px] rounded-full px-4 text-sm font-semibold transition-colors ${
+                      sensitivity === s
+                        ? 'bg-brand-600 text-white shadow-float'
+                        : 'glass text-slate-600 hover:brightness-105 dark:text-slate-200'
+                    }`}
+                  >
+                    {t(`scan.size.${s}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={() => onScan(position)}
               disabled={scanning}
@@ -260,6 +290,46 @@ export function SearchPanel({
                 </>
               )}
             </button>
+
+            {(scanning || previewUrl) && (
+              <div className="space-y-2">
+                <div className="relative aspect-[2/1] w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+                  {previewUrl ? (
+                    <>
+                      <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+                      {previewSize &&
+                        candidates.map((c, i) => (
+                          <span
+                            key={`${c.px}-${c.py}-${i}`}
+                            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-teal-500 shadow-md"
+                            style={{
+                              left: `${(c.px / previewSize.width) * 100}%`,
+                              top: `${(c.py / previewSize.height) * 100}%`,
+                            }}
+                          />
+                        ))}
+                    </>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-800">
+                      <Spinner className="h-5 w-5 border-slate-300 border-t-teal-600" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+                  <span className="truncate">{t('scan.preview')}</span>
+                  <span
+                    className="flex shrink-0 items-center gap-1.5"
+                    title={`rgb(${SCAN_WATER_COLOR.r}, ${SCAN_WATER_COLOR.g}, ${SCAN_WATER_COLOR.b})`}
+                  >
+                    <span
+                      className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+                      style={{ background: SCAN_WATER_COLOR.hex }}
+                    />
+                    {SCAN_WATER_COLOR.hex}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {scanState === 'done' && candidates.length === 0 && !scanning && (
               <p className="glass flex items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-center text-xs text-slate-400">
