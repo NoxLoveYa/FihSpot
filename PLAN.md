@@ -42,8 +42,7 @@ FihSpot/
 │       ├── index.css             # Tailwind + styles Google Maps (marqueurs, dark map, marker fade)
 │       ├── vite-env.d.ts         # types vite + vite-plugin-pwa/client + @types/google.maps + ImportMetaEnv
 │       ├── lib/
-│       │   ├── googleMaps.ts     # loader Google Maps (@googlemaps/js-api-loader, library "marker") + export MAP_ID + type LatLng + staticMapUrl()
-│       │   └── poiCategories.ts  # couleurs/icônes partagées par catégorie (carte + page POIs)
+│       │   └── googleMaps.ts     # loader Google Maps (@googlemaps/js-api-loader, library "marker") + export MAP_ID + type LatLng + staticMapUrl()
 │       ├── i18n/
 │       │   ├── index.ts          # init i18next : résolution langue (localStorage > navigator.language fr* → fr sinon en), <html lang> + <title> dynamiques, changeLanguage persistant (fihspot_lang)
 │       │   └── locales/
@@ -73,7 +72,7 @@ FihSpot/
 │       │   ├── Button.tsx / Input.tsx / Logo.tsx / Spinner.tsx
 │       └── pages/
 │           ├── MapPage.tsx       # page principale : carte + drawer + FAB + états (+ focus ?poi=)
-│           ├── PoisPage.tsx      # page POIs (grille) : recherche + filtres catégorie + tri + mini-cartes (Static API) + drawer détail
+│           ├── PoisPage.tsx      # page POIs (grille) : recherche + tri + mini-cartes (Static API) + drawer détail
 │           ├── ProfilePage.tsx   # profil : avatar upload, stats, onglets points/commentaires/photos
 │           ├── LoginPage.tsx
 │           └── RegisterPage.tsx
@@ -195,7 +194,7 @@ volumes:
 - **FAB** : rotation `+` → `✕` (rotation 45°) et `active:scale-95`.
 - **Formulaires** : shake horizontal des inputs en erreur, spinners (login/register, commentaire, upload).
 - **Toasts** : slide-in/dismiss animés (success/error/info).
-- **Marqueurs Google Maps (Advanced Markers)** : `AdvancedMarkerElement` + contenu HTML (`.marker-pin` pins catégorisés, anneau de sélection pulsant, points de localisation/recherche), `gmpClickable` + évènement `gmp-click` pour la sélection, `gmpClickable` des marqueurs décoratifs à `false`. Nécessite un **Map ID** (vecteur) — c'est aussi lui qui autorise `colorScheme`.
+- **Marqueurs Google Maps (Advanced Markers)** : `AdvancedMarkerElement` + contenu HTML (`.marker-pin` pins **icône poisson** `faFish` (pêche), anneau de sélection pulsant, points de localisation/recherche), `gmpClickable` + évènement `gmp-click` pour la sélection, `gmpClickable` des marqueurs décoratifs à `false`. Nécessite un **Map ID** (vecteur) — c'est aussi lui qui autorise `colorScheme`.
 - **Skeletons** : fiche POI en chargement (shimmer) + grille de la page POIs.
 - **Page POIs** : grille responsive avec **layout animations** (entrée/sortie/`layout` des cartes au filtrage) — `PoisPage.tsx`.
 
@@ -209,7 +208,7 @@ volumes:
 - États **chargement / vide / erreur** : loader plein écran, skeletons, bannière "Chargement des points…", toasts d'erreur.
 - Carte : bouton géolocalisation 🎯 (recenter), bannière "Cliquez sur la carte" en mode ajout, **contrôle custom Carte/Satellite** (`MapTypeToggle`, `mapTypeControl: false`) dans la Navbar + **inclinaison 45°** automatique en vue satellite (paysage 3D) — `setTilt(45)`/`setTilt(0)` via `maptypeid_changed`.
 - **Carte sans répétition du monde** : `minZoom` dynamique (`ceil(log2(largeur/256))`) + `restriction { latLngBounds: ±85°/±180°, strictBounds: true }` → impossible de dézoomer ou glisser vers les textures dupliquées.
-- **Page POIs** (`/pois`, bouton « Explorer » dans la Navbar) : barre de **recherche** (nom+description, debounce), **chips de filtre par catégorie** (pastilles colorées), **tri** (récents / plus commentés), **grille** `sm:2 lg:3 xl:4` de cartes POI. Chaque carte : **mini-carte** (Google Maps **Static API** via `staticMapUrl()`, fallback dégradé couleur si erreur), badge catégorie, nom, description (clampée), **dernier commentaire** (si présent), auteur/avatar + date, compteurs 💬/📷. Clic → **drawer de détail sur place** (`PoiDrawer`, photos/commentaires réutilisés) + bouton **« Voir sur la carte »** (`onViewOnMap`) → `/?poi=<id>`.
+- **Page POIs** (`/pois`, bouton « Explorer » dans la Navbar) : barre de **recherche** (nom+description, debounce), **tri** (récents / plus commentés), **grille** `sm:2 lg:3 xl:4` de cartes POI. Chaque carte : **mini-carte** (Google Maps **Static API** via `staticMapUrl()`, fallback dégradé bleu + icône poisson si erreur), nom, description (clampée), **dernier commentaire** (si présent), auteur/avatar + date, compteurs 💬/📷. Clic → **drawer de détail sur place** (`PoiDrawer`, photos/commentaires réutilisés) + bouton **« Voir sur la carte »** (`onViewOnMap`) → `/?poi=<id>`.
 
 ## Hors-ligne & cache-first (PWA, implémenté)
 
@@ -260,7 +259,8 @@ volumes:
 | **Recherche ville/lieu** (Nominatim, debounce, dropdown, panTo + marqueur) | ✅ implémenté |
 | **Page profil** (`/profile`) : avatar custom, stats, onglets points/commentaires/photos | ✅ implémenté |
 | **Clic profil → POI sur la carte** (`/?poi=` + panTo + ouverture fiche) | ✅ implémenté |
-| **Page POIs** (`/pois`) : grille + mini-cartes (Static API, fallback) + recherche + filtres catégorie + tri + drawer détail + bouton « Voir sur la carte » | ✅ implémenté |
+| **Page POIs** (`/pois`) : grille + mini-cartes (Static API, fallback) + recherche + tri + drawer détail + bouton « Voir sur la carte » | ✅ implémenté |
+| **Catégories supprimées de l'UI** (POI = pêche uniquement) : icône **poisson** `faFish` sur les marqueurs + fallback des mini-cartes ; champ `category` conservé en DB mais non utilisé | ✅ implémenté |
 | **Dernier commentaire** dans la liste (`?lastComment=1` sur `GET /api/pois`) | ✅ implémenté |
 | **PWA hors-ligne** (precache, manifest, icônes, headers nginx) | ✅ implémenté |
 | **Cache hors-ligne + fraîcheur en ligne** (spots/fiches/photos, NetworkFirst + CacheFirst ; tuiles retirées car Google Maps requiert le réseau) | ✅ implémenté |
@@ -277,8 +277,8 @@ volumes:
 ## À configurer / à faire (optionnel)
 - **Google OAuth** : créer un projet Google Cloud, un OAuth Client ID, puis remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (dans `server/.env` en dev, ou variables d'environnement Compose). Tant que vides, le bouton Google est masqué.
 - **Google Maps** : clé API **Maps JavaScript API** (`VITE_GOOGLE_MAPS_API_KEY`) et **Map ID** (`VITE_GOOGLE_MAPS_MAP_ID`) à renseigner dans `.env` (racine, pour Docker) et `client/.env` (dev local). Le Map ID est obligatoire pour les Advanced Markers et le `colorScheme`. Restreindre la clé aux HTTP referrers `https://fihspot.com/*` / `https://www.fihspot.com/*`.
-- **Maps Static API** : activer l'API **« Maps Static API »** sur le projet Google Cloud pour les mini-cartes de la page POIs (`staticMapUrl()`). Sinon, le fallback (dégradé couleur catégorie) s'affiche. Quota gratuit 25 000 requêtes/jour.
+- **Maps Static API** : activer l'API **« Maps Static API »** sur le projet Google Cloud pour les mini-cartes de la page POIs (`staticMapUrl()`). Sinon, le fallback (dégradé bleu + icône poisson) s'affiche. Quota gratuit 25 000 requêtes/jour.
 - **`JWT_SECRET`** : générer un secret fort et le définir (dev + Compose).
 - **HTTPS** : le service worker PWA n'est actif qu'en HTTPS (ou localhost). En production réelle, configurer un certificat (ex. Caddy/Traefik) devant nginx.
 - **Tests d'API** : supertest (non ajouté à ce jour).
-- **Recherche / filtres par catégorie sur la carte** : désormais disponibles sur la page POIs (`/pois`) ; pas encore implémentés directement sur la carte (roadmap).
+- **Recherche sur la carte** : disponible sur la page POIs (`/pois`) ; pas encore implémentée directement sur la carte (roadmap).

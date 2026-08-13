@@ -22,20 +22,10 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
-
-  const categories = [
-    { value: '', label: t('categories.general') },
-    { value: 'culture', label: t('categories.culture') },
-    { value: 'nature', label: t('categories.nature') },
-    { value: 'food', label: t('categories.food') },
-    { value: 'sport', label: t('categories.sport') },
-    { value: 'shop', label: t('categories.shop') },
-  ];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -50,7 +40,6 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
       await api.createPoi({
         name,
         description,
-        category: category || undefined,
         lat: position.lat,
         lng: position.lng,
       });
@@ -122,20 +111,6 @@ export function AddPoiPanel({ position, onCancel, onCreated }: AddPoiPanelProps)
             placeholder={t('addPoi.descriptionPlaceholder')}
             className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">{t('addPoi.category')}</span>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-          >
-            {categories.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
         </label>
 
         <Button type="submit" disabled={saving} className="mt-2 w-full">

@@ -7,6 +7,7 @@ import {
   faArrowLeft,
   faCamera,
   faComment,
+  faFish,
   faLocationDot,
   faMagnifyingGlass,
   faMapPin,
@@ -14,7 +15,6 @@ import {
 import type { PoISummary } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { categoryColor, categoryIcon } from '../lib/poiCategories';
 import { staticMapUrl } from '../lib/googleMaps';
 import { PoiDrawer } from '../components/PoiDrawer';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -22,7 +22,7 @@ import { LanguageToggle } from '../components/LanguageToggle';
 import { Skeleton } from '../components/Spinner';
 import i18n from '../i18n';
 
-const CATEGORIES = ['culture', 'nature', 'food', 'sport', 'shop'] as const;
+const FISH_COLOR = '#2563eb';
 
 type Sort = 'newest' | 'commented';
 
@@ -33,7 +33,6 @@ function formatDate(iso: string): string {
 function PoisCard({ poi, onClick }: { poi: PoISummary; onClick: () => void }) {
   const { t } = useTranslation();
   const lastComment = poi.comments?.[0];
-  const color = categoryColor(poi.category);
   const [imgError, setImgError] = useState(false);
   const mapUrl = staticMapUrl(poi.lat, poi.lng, '600x300');
 
@@ -54,17 +53,11 @@ function PoisCard({ poi, onClick }: { poi: PoISummary; onClick: () => void }) {
         ) : (
           <div
             className="flex h-full w-full items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${color}22, ${color}55)` }}
+            style={{ background: `linear-gradient(135deg, ${FISH_COLOR}22, ${FISH_COLOR}55)` }}
           >
-            <FontAwesomeIcon icon={categoryIcon(poi.category)} className="h-10 w-10 text-white/90" />
+            <FontAwesomeIcon icon={faFish} className="h-10 w-10 text-white/90" />
           </div>
         )}
-        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold shadow-soft backdrop-blur dark:bg-slate-900/80">
-          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-          <span style={{ color }}>
-            {t(`categories.${poi.category ?? 'general'}`, { defaultValue: poi.category ?? t('categories.general') })}
-          </span>
-        </span>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -119,7 +112,6 @@ export function PoisPage() {
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>('newest');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -140,22 +132,12 @@ export function PoisPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = pois.filter((p) => {
-      const matchesCategory = category === null || p.category === category;
-      const matchesQuery =
-        q.length === 0 || `${p.name} ${p.description ?? ''}`.toLowerCase().includes(q);
-      return matchesCategory && matchesQuery;
-    });
+    const list = q.length === 0 ? pois : pois.filter((p) => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(q));
     return [...list].sort((a, b) => {
       if (sort === 'commented') return b._count.comments - a._count.comments;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [pois, query, category, sort]);
-
-  const categoryChips: { value: string | null; label: string }[] = [
-    { value: null, label: t('pois.all') },
-    ...CATEGORIES.map((c) => ({ value: c, label: t(`categories.${c}`) })),
-  ];
+  }, [pois, query, sort]);
 
   return (
     <div className="min-h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
@@ -186,28 +168,8 @@ export function PoisPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex flex-1 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {categoryChips.map((chip) => {
-                const active = category === chip.value;
-                return (
-                  <button
-                    key={chip.value ?? 'all'}
-                    onClick={() => setCategory(chip.value)}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      active
-                        ? 'bg-brand-600 text-white shadow-float'
-                        : 'bg-white text-slate-600 shadow-soft hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {chip.value && <span className="h-2 w-2 rounded-full" style={{ background: categoryColor(chip.value) }} />}
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <label className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-soft dark:bg-slate-800 dark:text-slate-300">
+          <div className="flex items-center justify-end">
+            <label className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-soft dark:bg-slate-800 dark:text-slate-300">
               <FontAwesomeIcon icon={faMapPin} className="h-3 w-3 text-brand-500" />
               <select
                 value={sort}

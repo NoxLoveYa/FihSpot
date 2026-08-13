@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
+import { faFish } from '@fortawesome/free-solid-svg-icons';
 import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
-import { categoryColor, categoryIconHtml } from '../lib/poiCategories';
 import { useTheme } from '../context/ThemeContext';
 import type { MapType } from './MapTypeToggle';
 import type { Bounds, PoISummary } from '../api/types';
 
-function pinHtml(category: string | null): string {
-  return `<div class="marker-pin" style="background:${categoryColor(category)}">${categoryIconHtml(category)}</div>`;
+const PIN_COLOR = '#2563eb';
+
+function pinHtml(): string {
+  const fish = faIcon(faFish);
+  return `<div class="marker-pin" style="background:${PIN_COLOR}">${fish ? fish.html[0] : ''}</div>`;
 }
 
 function makeContent(innerHtml: string, interactive = false): HTMLElement {
@@ -181,7 +185,7 @@ export function GoogleMapView({
         new AdvancedMarkerElement({
           map,
           position: draftPosition,
-          content: makeContent(pinHtml(null)),
+          content: makeContent(pinHtml()),
           zIndex: 200,
         }),
       );
@@ -191,7 +195,7 @@ export function GoogleMapView({
       const marker = new AdvancedMarkerElement({
         map,
         position: { lat: poi.lat, lng: poi.lng },
-        content: makeContent(pinHtml(poi.category), true),
+        content: makeContent(pinHtml(), true),
         zIndex: 500,
         title: poi.name,
         gmpClickable: true,

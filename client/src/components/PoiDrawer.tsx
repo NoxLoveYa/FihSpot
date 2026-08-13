@@ -163,11 +163,6 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
               >
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-700">
                   <div className="min-w-0">
-                    {poi.category && (
-                      <span className="mb-1 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
-                        {t(`categories.${poi.category}`, { defaultValue: poi.category })}
-                      </span>
-                    )}
                     <h2 className="truncate text-lg font-bold text-slate-800 dark:text-slate-100">{poi.name}</h2>
                     <p className="text-xs text-slate-400">
                       {t('poi.addedBy', { name: poi.createdBy.name, date: formatDate(poi.createdAt) })}

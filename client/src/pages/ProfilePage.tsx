@@ -184,11 +184,6 @@ export function ProfilePage() {
                           <span className="truncate font-semibold text-slate-800 dark:text-slate-100">
                             {poi.name}
                           </span>
-                          {poi.category && (
-                            <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-200">
-                              {t(`categories.${poi.category}`, { defaultValue: poi.category })}
-                            </span>
-                          )}
                         </div>
                         {poi.description && (
                           <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-400">
