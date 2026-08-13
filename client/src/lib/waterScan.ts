@@ -1,6 +1,7 @@
 import { staticMapForScan } from './googleMaps';
 import type { LatLng } from './googleMaps';
 import type { ChunkJob } from './waterWorker';
+import { cacheImage, getCachedImage } from './scanCache';
 import {
   analyzeWater,
   DARK_WATER,
@@ -8,6 +9,7 @@ import {
   latLngToWorld,
   regionsToDetectedWater,
   selectWaterCandidates,
+  worldToLatLng,
 } from './waterAnalysis';
 import type { DetectedWater, ScanSensitivity } from './waterAnalysis';
 
@@ -28,6 +30,8 @@ export interface ScanResult {
   /** Preview image dimensions (1280×1280 with scale=2). */
   width: number;
   height: number;
+  /** Number of tiles that came from the persistent cache (no network). */
+  cachedCount: number;
 }
 
 export interface ScanOptions {
@@ -59,49 +63,63 @@ function metersPerPx(lat: number, zoom: number): number {
   return (EARTH_CIRC_M * Math.cos((lat * Math.PI) / 180)) / (256 * 2 ** zoom);
 }
 
-/**
- * The analysis zoom for a radius: the highest zoom at which the whole radius
- * region fits within the chunk budget. The grid is then that many chunks per
- * axis, so every radius is chunked uniformly and each chunk is analyzed at the
- * best resolution a phone can afford — never tied to the live map zoom.
- */
-function chooseChunkZoom(lat: number, radiusKm: number): number {
-  const sideM = radiusKm * 2000;
-  for (let z = 19; z >= 10; z--) {
-    const stepM = CHUNK_SIZE * metersPerPx(lat, z) * (1 - OVERLAP);
-    const cols = Math.ceil(sideM / stepM);
-    if (cols * cols <= MAX_CHUNKS) return z;
-  }
-  return 10;
+interface TilePlan {
+  key: string;
+  center: LatLng;
+  zoom: number;
 }
 
-function planChunks(
-  center: LatLng,
-  radiusKm: number,
-  chunkZoom: number,
-): { center: LatLng; zoom: number }[] {
-  const sideM = radiusKm * 2000;
+/**
+ * Tiles the region on a FIXED global grid (Web-Mercator world units). At zoom
+ * Z a 640px static map covers exactly 640 world units, so cells spaced by
+ * `CHUNK_SIZE·(1−OVERLAP)` units tile the world deterministically: the same
+ * geographic zone always maps to the same tile key and the same static-map
+ * URL, which is what makes the tile cache reusable across scans.
+ */
+function planTiles(center: LatLng, radiusKm: number, chunkZoom: number): TilePlan[] {
   const cosLat = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
-  const stepM = CHUNK_SIZE * metersPerPx(center.lat, chunkZoom) * (1 - OVERLAP);
-  const cols = Math.max(1, Math.ceil(sideM / stepM));
-  const latStepDeg = stepM / 111320;
-  const lngStepDeg = stepM / (111320 * cosLat);
-  const neLat = center.lat + (sideM / 2) / 111320;
-  const swLng = center.lng - (sideM / 2) / (111320 * cosLat);
+  const dLat = (radiusKm * 1000) / 111320;
+  const dLng = (radiusKm * 1000) / (111320 * cosLat);
+  const sw = latLngToWorld(center.lat - dLat, center.lng - dLng, chunkZoom);
+  const ne = latLngToWorld(center.lat + dLat, center.lng + dLng, chunkZoom);
 
-  const chunks: { center: LatLng; zoom: number }[] = [];
-  for (let r = 0; r < cols; r++) {
-    for (let c = 0; c < cols; c++) {
-      chunks.push({
-        center: {
-          lat: Math.min(85, Math.max(-85, neLat - (r + 0.5) * latStepDeg)),
-          lng: swLng + (c + 0.5) * lngStepDeg,
-        },
-        zoom: chunkZoom,
-      });
+  const spacing = CHUNK_SIZE * (1 - OVERLAP); // world units between tile centers
+  const gx0 = Math.floor(sw.x / spacing);
+  const gx1 = Math.floor(ne.x / spacing);
+  const gy0 = Math.floor(ne.y / spacing);
+  const gy1 = Math.floor(sw.y / spacing);
+
+  // Only keep tiles whose cell actually intersects the scanned circle (skips
+  // the square's corners, cutting requests for no loss of coverage).
+  const radiusM = radiusKm * 1000;
+  const halfDiagM = (spacing * Math.SQRT2 * 0.5) * metersPerPx(center.lat, chunkZoom);
+
+  const tiles: TilePlan[] = [];
+  for (let gy = gy0; gy <= gy1; gy++) {
+    for (let gx = gx0; gx <= gx1; gx++) {
+      const c = worldToLatLng((gx + 0.5) * spacing, (gy + 0.5) * spacing, chunkZoom);
+      c.lat = Math.min(85, Math.max(-85, c.lat));
+      const dLatM = Math.abs(c.lat - center.lat) * 111320;
+      const dLngM = Math.abs(c.lng - center.lng) * 111320 * cosLat;
+      if (Math.hypot(dLatM, dLngM) > radiusM + halfDiagM) continue;
+      tiles.push({ key: `${chunkZoom}:${gx}:${gy}`, center: c, zoom: chunkZoom });
     }
   }
-  return chunks;
+  return tiles;
+}
+
+/**
+ * The analysis zoom for a radius: the highest zoom whose actual planned tile
+ * count fits within the chunk budget (measured on the grid, since grid
+ * alignment can straddle an extra row/column). Every radius is chunked the
+ * same way and analyzed at the best resolution a phone can afford — never tied
+ * to the live map zoom.
+ */
+function chooseChunkZoom(center: LatLng, radiusKm: number): number {
+  for (let z = 19; z >= 10; z--) {
+    if (planTiles(center, radiusKm, z).length <= MAX_CHUNKS) return z;
+  }
+  return 10;
 }
 
 /** Pixel thresholds from a minimum physical pond diameter at the chunk zoom. */
@@ -143,9 +161,16 @@ function fitPreview(b: { swLat: number; swLng: number; neLat: number; neLng: num
 async function fetchPreview(preview: { center: LatLng; zoom: number }) {
   const url = staticMapForScan(preview.center, preview.zoom, CHUNK_SIZE);
   if (!url) throw new Error('Map service unavailable');
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-  const blob = await res.blob();
+  const hit = await getCachedImage(url);
+  let blob: Blob;
+  if (hit) {
+    blob = await hit.response.blob();
+  } else {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+    await cacheImage(url, res.clone());
+    blob = await res.blob();
+  }
   return { previewUrl: URL.createObjectURL(blob), width: CHUNK_SIZE * SCALE, height: CHUNK_SIZE * SCALE };
 }
 
@@ -157,11 +182,12 @@ function supportsWorkerPath(): boolean {
 async function runChunkJobs(
   jobs: ChunkJob[],
   onProgress?: (done: number, total: number) => void,
-): Promise<DetectedWater[][]> {
+): Promise<{ perChunk: DetectedWater[][]; cachedCount: number }> {
   const results: (DetectedWater[] | undefined)[] = new Array(jobs.length);
-  if (jobs.length === 0) return [];
+  if (jobs.length === 0) return { perChunk: [], cachedCount: 0 };
   const cores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4;
   const poolSize = Math.max(1, Math.min(6, cores));
+  let cachedCount = 0;
 
   await new Promise<void>((resolve) => {
     let next = 0;
@@ -178,8 +204,9 @@ async function runChunkJobs(
       const worker = new Worker(new URL('./waterWorker', import.meta.url), { type: 'module' });
       workers.push(worker);
       worker.onmessage = (e: MessageEvent) => {
-        const r = e.data as { id: number; candidates: DetectedWater[] };
+        const r = e.data as { id: number; candidates: DetectedWater[]; cached?: boolean };
         results[r.id] = r.candidates;
+        if (r.cached) cachedCount += 1;
         done += 1;
         onProgress?.(done, jobs.length);
         if (next < jobs.length) {
@@ -209,14 +236,24 @@ async function runChunkJobs(
     }
   });
 
-  return results.map((r) => r ?? []);
+  return { perChunk: results.map((r) => r ?? []), cachedCount };
 }
 
 /** Fallback when Web Workers / OffscreenCanvas are unavailable: sequential on the main thread. */
-async function analyzeChunkOnMain(job: ChunkJob): Promise<DetectedWater[]> {
-  const res = await fetch(job.url);
-  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-  const blob = await res.blob();
+async function analyzeChunkOnMain(job: ChunkJob): Promise<{ candidates: DetectedWater[]; cached: boolean }> {
+  const hit = await getCachedImage(job.url);
+  let response: Response;
+  let cached = false;
+  if (hit) {
+    response = hit.response;
+    cached = true;
+  } else {
+    const res = await fetch(job.url);
+    if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+    await cacheImage(job.url, res.clone());
+    response = res;
+  }
+  const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -241,7 +278,10 @@ async function analyzeChunkOnMain(job: ChunkJob): Promise<DetectedWater[]> {
     blueDominance: false,
   });
   const chosen = selectWaterCandidates(regions, img.width, img.height);
-  return regionsToDetectedWater(chosen, img.width, img.height, job.center, job.zoom, job.size);
+  return {
+    candidates: regionsToDetectedWater(chosen, img.width, img.height, job.center, job.zoom, job.size),
+    cached,
+  };
 }
 
 /** Dedupes candidates detected in overlapping chunks (same pond twice). */
@@ -271,8 +311,8 @@ export async function scanForWater(
 ): Promise<ScanResult> {
   const radiusKm = opts?.radiusKm ?? DEFAULT_RADIUS_KM;
 
-  const chunkZoom = chooseChunkZoom(area.lat, radiusKm);
-  const chunks = planChunks(area, radiusKm, chunkZoom);
+  const chunkZoom = chooseChunkZoom(area, radiusKm);
+  const tiles = planTiles(area, radiusKm, chunkZoom);
   const mpp = metersPerPx(area.lat, chunkZoom);
   const minDiameterM = RADIUS_POND_SIZES_M[radiusKm]?.[sensitivity] ?? RADIUS_POND_SIZES_M[DEFAULT_RADIUS_KM]?.default ?? 250;
   const { minArea, minSide } = pondThresholds(minDiameterM, mpp);
@@ -281,20 +321,26 @@ export async function scanForWater(
   const preview = fitPreview(bounds);
   const previewPromise = fetchPreview(preview);
 
-  const jobs: ChunkJob[] = chunks.map((ch, id) => {
-    const url = staticMapForScan(ch.center, ch.zoom, CHUNK_SIZE);
+  const jobs: ChunkJob[] = tiles.map((tile, id) => {
+    const url = staticMapForScan(tile.center, tile.zoom, CHUNK_SIZE);
     if (!url) throw new Error('Map service unavailable');
-    return { id, url, center: ch.center, zoom: ch.zoom, size: CHUNK_SIZE, minArea, minSide };
+    return { id, url, tileKey: tile.key, center: tile.center, zoom: tile.zoom, size: CHUNK_SIZE, minArea, minSide };
   });
 
   let perChunk: DetectedWater[][];
+  let cachedCount: number;
   if (supportsWorkerPath()) {
-    perChunk = await runChunkJobs(jobs, opts?.onProgress);
+    const res = await runChunkJobs(jobs, opts?.onProgress);
+    perChunk = res.perChunk;
+    cachedCount = res.cachedCount;
   } else {
     perChunk = [];
+    cachedCount = 0;
     for (let i = 0; i < jobs.length; i++) {
       try {
-        perChunk.push(await analyzeChunkOnMain(jobs[i]));
+        const r = await analyzeChunkOnMain(jobs[i]);
+        perChunk.push(r.candidates);
+        if (r.cached) cachedCount += 1;
       } catch {
         perChunk.push([]);
       }
@@ -325,5 +371,5 @@ export async function scanForWater(
       };
     });
 
-  return { candidates, previewUrl, width, height };
+  return { candidates, previewUrl, width, height, cachedCount };
 }

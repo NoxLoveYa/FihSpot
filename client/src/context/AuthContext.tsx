@@ -14,6 +14,8 @@ import {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  /** Admin users, or users explicitly granted access, may use the spot search. */
+  canSearch: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
@@ -98,9 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCachedUser(updated);
   }, []);
 
+  const canSearch = user?.role === 'ADMIN' || user?.searchEnabled === true;
+
   const value = useMemo(
-    () => ({ user, loading, login, register, googleLogin, logout, updateUser }),
-    [user, loading, login, register, googleLogin, logout, updateUser],
+    () => ({ user, loading, canSearch, login, register, googleLogin, logout, updateUser }),
+    [user, loading, canSearch, login, register, googleLogin, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

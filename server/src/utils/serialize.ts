@@ -4,6 +4,7 @@ export function publicUser(user: {
   name: string;
   avatarUrl: string | null;
   role: string;
+  searchEnabled: boolean;
   createdAt: Date;
 }) {
   return {
@@ -12,6 +13,7 @@ export function publicUser(user: {
     name: user.name,
     avatarUrl: user.avatarUrl,
     role: user.role,
+    searchEnabled: user.searchEnabled,
     createdAt: user.createdAt,
   };
 }

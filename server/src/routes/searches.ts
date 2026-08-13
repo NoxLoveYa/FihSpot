@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireSearchAccess } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
 import { findPoisInBounds, viewportBounds } from '../services/search';
 
 const router = Router();
+
+// Saved searches belong to the spot-search feature: only admins or users with
+// explicit search access can use them.
+router.use(requireAuth, requireSearchAccess);
 
 function validateSearchInput(body: { name?: unknown; lat?: unknown; lng?: unknown; zoom?: unknown }) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -27,7 +31,7 @@ function validateSearchInput(body: { name?: unknown; lat?: unknown; lng?: unknow
   };
 }
 
-router.get('/', requireAuth, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const searches = await prisma.search.findMany({
       where: { userId: req.user!.id },
@@ -39,7 +43,7 @@ router.get('/', requireAuth, async (req, res, next) => {
   }
 });
 
-router.get('/:id', requireAuth, async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const search = await prisma.search.findUnique({ where: { id: req.params.id } });
     if (!search) throw new ApiError(404, 'Saved search not found', 'SEARCH_NOT_FOUND');
@@ -62,7 +66,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-router.post('/', requireAuth, async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const data = validateSearchInput(req.body);
     const search = await prisma.search.create({
@@ -74,7 +78,7 @@ router.post('/', requireAuth, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireAuth, async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const search = await prisma.search.findUnique({ where: { id: req.params.id } });
     if (!search) throw new ApiError(404, 'Saved search not found', 'SEARCH_NOT_FOUND');
@@ -94,7 +98,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireAuth, async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const search = await prisma.search.findUnique({ where: { id: req.params.id } });
     if (!search) throw new ApiError(404, 'Saved search not found', 'SEARCH_NOT_FOUND');

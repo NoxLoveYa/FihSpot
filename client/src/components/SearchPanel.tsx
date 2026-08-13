@@ -43,6 +43,7 @@ interface SearchPanelProps {
   candidates: DetectedWater[];
   scanning: boolean;
   scanProgress?: { done: number; total: number } | null;
+  cachedCount?: number;
   previewUrl: string | null;
   previewSize: { width: number; height: number } | null;
   sensitivity: ScanSensitivity;
@@ -71,6 +72,7 @@ export function SearchPanel({
   candidates,
   scanning,
   scanProgress,
+  cachedCount,
   previewUrl,
   previewSize,
   sensitivity,
@@ -346,6 +348,12 @@ export function SearchPanel({
                     {SCAN_WATER_COLOR.hex}
                   </span>
                 </div>
+                {cachedCount && cachedCount > 0 && !scanning && (
+                  <p className="text-[11px] text-slate-400">
+                    <FontAwesomeIcon icon={faDroplet} className="mr-1 h-3 w-3 text-emerald-500" />
+                    {t('scan.cached', { count: cachedCount })}
+                  </p>
+                )}
               </div>
             )}
 

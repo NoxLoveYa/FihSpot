@@ -191,8 +191,10 @@ export const api = {
     const q = qs.toString();
     return request<{ users: AdminUser[]; total: number; page: number; pages: number }>(`/admin/users${q ? `?${q}` : ''}`);
   },
-  updateUserAdmin: (id: string, data: { name?: string; email?: string; role?: Role; password?: string }) =>
-    request<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  updateUserAdmin: (
+    id: string,
+    data: { name?: string; email?: string; role?: Role; password?: string; searchEnabled?: boolean },
+  ) => request<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteUserAdmin: (id: string) => request<void>(`/admin/users/${id}`, { method: 'DELETE' }),
   listPoisAdmin: (params: { search?: string; page?: number }) => {
     const qs = new URLSearchParams();

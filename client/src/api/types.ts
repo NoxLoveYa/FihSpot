@@ -6,6 +6,7 @@ export interface User {
   name: string;
   avatarUrl: string | null;
   role: Role;
+  searchEnabled?: boolean;
   createdAt: string;
 }
 
@@ -113,6 +114,7 @@ export interface AdminUser {
   name: string;
   avatarUrl: string | null;
   role: Role;
+  searchEnabled?: boolean;
   createdAt: string;
   _count: { pois: number; comments: number; photos: number };
 }

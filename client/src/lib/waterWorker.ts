@@ -1,6 +1,8 @@
-// Web Worker: fetches one static map chunk, decodes it and runs the water
-// detection, so several chunks are analyzed in parallel off the main thread.
+// Web Worker: resolves one static-map tile from the persistent cache (or the
+// network), decodes it and runs the water detection, so several tiles are
+// analyzed in parallel off the main thread and repeat scans hit the cache.
 
+import { cacheImage, getCachedImage } from './scanCache';
 import {
   analyzeWater,
   DARK_WATER,
@@ -12,6 +14,7 @@ import type { DetectedWater, LatLng } from './waterAnalysis';
 export interface ChunkJob {
   id: number;
   url: string;
+  tileKey: string;
   center: LatLng;
   zoom: number;
   size: number;
@@ -22,6 +25,8 @@ export interface ChunkJob {
 export interface ChunkResult {
   id: number;
   candidates: DetectedWater[];
+  /** true when the tile image came from the persistent cache. */
+  cached?: boolean;
   error?: string;
 }
 
@@ -30,12 +35,20 @@ const workerScope = self as unknown as {
   onmessage: ((e: MessageEvent<ChunkJob>) => void) | null;
 };
 
+async function resolveImage(url: string): Promise<{ response: Response; cached: boolean }> {
+  const hit = await getCachedImage(url);
+  if (hit) return { response: hit.response, cached: true };
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+  await cacheImage(url, res.clone());
+  return { response: res, cached: false };
+}
+
 workerScope.onmessage = async (e: MessageEvent<ChunkJob>) => {
   const job = e.data;
   try {
-    const res = await fetch(job.url);
-    if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-    const blob = await res.blob();
+    const { response, cached } = await resolveImage(job.url);
+    const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
 
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -54,8 +67,13 @@ workerScope.onmessage = async (e: MessageEvent<ChunkJob>) => {
     const chosen = selectWaterCandidates(regions, W, H);
     const candidates = regionsToDetectedWater(chosen, W, H, job.center, job.zoom, job.size);
 
-    workerScope.postMessage({ id: job.id, candidates });
+    workerScope.postMessage({ id: job.id, candidates, cached });
   } catch (err) {
-    workerScope.postMessage({ id: job.id, candidates: [], error: err instanceof Error ? err.message : String(err) });
+    workerScope.postMessage({
+      id: job.id,
+      candidates: [],
+      cached: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 };

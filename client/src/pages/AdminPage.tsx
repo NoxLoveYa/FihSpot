@@ -380,6 +380,19 @@ export function AdminPage() {
     setPoiPage(1);
   };
 
+  async function toggleUserSearch(target: AdminUser) {
+    setBusyUser(target.id);
+    try {
+      await api.updateUserAdmin(target.id, { searchEnabled: !target.searchEnabled });
+      toast(t('admin.users.saved'), 'success');
+      loadUsers(userPage, userSearch, userSort);
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
+    } finally {
+      setBusyUser(null);
+    }
+  }
+
   async function toggleUserRole(target: AdminUser) {
     const next: Role = target.role === 'ADMIN' ? 'USER' : 'ADMIN';
     setBusyUser(target.id);
@@ -673,6 +686,17 @@ export function AdminPage() {
                             className="min-h-[36px] px-3 py-1.5 text-xs"
                           >
                             {u.role === 'ADMIN' ? t('admin.users.demote') : t('admin.users.promote')}
+                          </Button>
+                        )}
+                        {u.role !== 'ADMIN' && (
+                          <Button
+                            variant={u.searchEnabled ? 'secondary' : 'primary'}
+                            onClick={() => toggleUserSearch(u)}
+                            disabled={busyUser === u.id}
+                            title={t('admin.users.searchAccess')}
+                            className="min-h-[36px] px-3 py-1.5 text-xs"
+                          >
+                            {u.searchEnabled ? t('admin.users.searchDisable') : t('admin.users.searchEnable')}
                           </Button>
                         )}
                         {u.id !== user?.id && (

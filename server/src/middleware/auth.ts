@@ -42,6 +42,18 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   next();
 }
 
+export function requireSearchAccess(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    res.status(401).json({ error: 'Not authenticated', code: 'NOT_AUTHENTICATED' });
+    return;
+  }
+  if (req.user.role !== 'ADMIN' && !req.user.searchEnabled) {
+    res.status(403).json({ error: 'Search access is disabled', code: 'SEARCH_DISABLED' });
+    return;
+  }
+  next();
+}
+
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated', code: 'NOT_AUTHENTICATED' });

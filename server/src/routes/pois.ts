@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requireAuth, requireSearchAccess, optionalAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { deletePhotoWithFile, deletePoiWithFiles } from '../services/content';
@@ -59,7 +59,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
   }
 });
 
-router.post('/:id/seen', requireAuth, async (req, res, next) => {
+router.post('/:id/seen', requireAuth, requireSearchAccess, async (req, res, next) => {
   try {
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
@@ -76,7 +76,7 @@ router.post('/:id/seen', requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete('/:id/seen', requireAuth, async (req, res, next) => {
+router.delete('/:id/seen', requireAuth, requireSearchAccess, async (req, res, next) => {
   try {
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');

@@ -66,6 +66,7 @@ router.get('/users', async (req, res, next) => {
           name: true,
           avatarUrl: true,
           role: true,
+          searchEnabled: true,
           createdAt: true,
           _count: { select: { pois: true, comments: true, photos: true } },
         },
@@ -81,11 +82,12 @@ router.get('/users', async (req, res, next) => {
 router.patch('/users/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, email, role, password } = req.body as {
+    const { name, email, role, password, searchEnabled } = req.body as {
       name?: string;
       email?: string;
       role?: string;
       password?: string;
+      searchEnabled?: boolean;
     };
 
     const target = await prisma.user.findUnique({ where: { id } });
@@ -111,11 +113,13 @@ router.patch('/users/:id', async (req, res, next) => {
       email?: string;
       role?: 'USER' | 'ADMIN';
       passwordHash?: string;
+      searchEnabled?: boolean;
     } = {};
 
     if (name !== undefined) data.name = name.trim() || target.name;
     if (email !== undefined) data.email = email.trim().toLowerCase() || target.email;
     if (role !== undefined) data.role = newRole;
+    if (searchEnabled !== undefined) data.searchEnabled = Boolean(searchEnabled);
     if (password !== undefined) {
       if (password.length < 6) throw new ApiError(400, 'Password too short (minimum 6 characters)', 'PASSWORD_TOO_SHORT');
       data.passwordHash = await hashPassword(password);
@@ -130,6 +134,7 @@ router.patch('/users/:id', async (req, res, next) => {
         name: true,
         avatarUrl: true,
         role: true,
+        searchEnabled: true,
         createdAt: true,
       },
     });

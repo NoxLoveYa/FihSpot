@@ -27,7 +27,7 @@ import { getPreviousPath } from '../navigation';
 
 export function MapPage() {
   const { t } = useTranslation();
-  const { loading } = useAuth();
+  const { loading, canSearch } = useAuth();
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -78,6 +78,7 @@ export function MapPage() {
   // Pond scan state (transient)
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
+  const [scanCached, setScanCached] = useState(0);
   const lastScanRef = useRef<string | null>(null);
   const [sensitivity, setSensitivity] = useState<ScanSensitivity>(() => {
     const saved = localStorage.getItem('fihspot_scan_sensitivity') as ScanSensitivity | null;
@@ -200,14 +201,23 @@ export function MapPage() {
     lastScanRef.current = null;
   }, [clearSearch]);
 
+  // If search access is revoked (or the user logs out), drop any active search
+  // session so the feature can't stay open.
+  useEffect(() => {
+    if (!canSearch && (searchMode || searchArea)) {
+      handleClearSearch();
+    }
+  }, [canSearch, searchMode, searchArea, handleClearSearch]);
+
   const handleCloseDrawer = useCallback(() => setSelectedId(null), []);
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number }) => {
       setScanning(true);
       setScanProgress(null);
+      setScanCached(0);
       try {
-        const { candidates: found, previewUrl, width, height } = await scanForWater(area, sensitivity, {
+        const { candidates: found, previewUrl, width, height, cachedCount } = await scanForWater(area, sensitivity, {
           radiusKm: scanRadiusKm,
           onProgress: (done, total) => setScanProgress({ done, total }),
         });
@@ -215,6 +225,7 @@ export function MapPage() {
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
         setPreview(previewUrl, { width, height });
         setCandidates(filtered);
+        setScanCached(cachedCount);
       } catch (e) {
         console.error('pond scan failed', e);
         setPreview(null, null);
@@ -444,7 +455,7 @@ export function MapPage() {
         </div>
       )}
 
-      {searchMode && !searchArea && (
+      {canSearch && searchMode && !searchArea && (
         <div className="pointer-events-none absolute inset-x-0 bottom-28 z-[1150] flex justify-center">
           <div className="glass flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-200">
             <FontAwesomeIcon icon={faBullseye} className="h-4 w-4 text-brand-500" />
@@ -471,47 +482,52 @@ export function MapPage() {
         }}
       />
 
-      <SearchPanel
-        position={searchArea}
-        pois={searchPois}
-        loading={searchLoading}
-        activeSearchId={activeSearchId}
-        minimized={minimized}
-        candidates={candidates}
-        scanning={scanning}
-        scanProgress={scanProgress}
-        previewUrl={previewUrl}
-        previewSize={previewSize}
-        sensitivity={sensitivity}
-        radius={scanRadiusKm}
-        zoom={mapRef.current?.getZoom() ?? 14}
-        onSensitivityChange={setSensitivity}
-        onRadiusChange={setScanRadiusKm}
-        onScan={runScan}
-        onAddCandidate={handleAddCandidate}
-        onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
-        onClose={handleClearSearch}
-        onMinimize={() => setMinimized(true)}
-        onSelect={(id) => setSelectedId(id)}
-        onToggleSeen={handleToggleSeen}
-        onSaved={(search) => {
-          setActiveSearchId(search.id);
-          loadSavedSearches();
-        }}
-        onDeleted={handleClearSearch}
-        onRenamed={loadSavedSearches}
-      />
+      {canSearch && (
+        <SearchPanel
+          position={searchArea}
+          pois={searchPois}
+          loading={searchLoading}
+          activeSearchId={activeSearchId}
+          minimized={minimized}
+          candidates={candidates}
+          scanning={scanning}
+          scanProgress={scanProgress}
+          cachedCount={scanCached}
+          previewUrl={previewUrl}
+          previewSize={previewSize}
+          sensitivity={sensitivity}
+          radius={scanRadiusKm}
+          zoom={mapRef.current?.getZoom() ?? 14}
+          onSensitivityChange={setSensitivity}
+          onRadiusChange={setScanRadiusKm}
+          onScan={runScan}
+          onAddCandidate={handleAddCandidate}
+          onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
+          onClose={handleClearSearch}
+          onMinimize={() => setMinimized(true)}
+          onSelect={(id) => setSelectedId(id)}
+          onToggleSeen={handleToggleSeen}
+          onSaved={(search) => {
+            setActiveSearchId(search.id);
+            loadSavedSearches();
+          }}
+          onDeleted={handleClearSearch}
+          onRenamed={loadSavedSearches}
+        />
+      )}
 
-      <SavedSearchesPanel
-        open={savedOpen}
-        searches={savedSearches}
-        loading={savedLoading}
-        onClose={() => setSavedOpen(false)}
-        onOpen={handleOpenSaved}
-        onDelete={handleDeleteSaved}
-      />
+      {canSearch && (
+        <SavedSearchesPanel
+          open={savedOpen}
+          searches={savedSearches}
+          loading={savedLoading}
+          onClose={() => setSavedOpen(false)}
+          onOpen={handleOpenSaved}
+          onDelete={handleDeleteSaved}
+        />
+      )}
 
-      {searchArea && minimized && !selectedId && (
+      {canSearch && searchArea && minimized && !selectedId && (
         <button
           onClick={() => setMinimized(false)}
           aria-label={t('search.restore')}
@@ -530,29 +546,33 @@ export function MapPage() {
 
       {!selectedId && (
         <>
-          <button
-            onClick={() => setSavedOpen((v) => !v)}
-            aria-label={t('saved.title')}
-            title={t('saved.title')}
-            className={`fixed bottom-24 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
-              savedOpen ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
-            }`}
-          >
-            <FontAwesomeIcon icon={faBookmark} />
-          </button>
-          <button
-            onClick={() => {
-              if (searchMode) handleClearSearch();
-              setSearchMode((v) => !v);
-            }}
-            aria-label={t('search.toggle')}
-            title={t('search.toggle')}
-            className={`fixed bottom-40 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
-              searchMode ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
-            }`}
-          >
-            <FontAwesomeIcon icon={faBullseye} />
-          </button>
+          {canSearch && (
+            <button
+              onClick={() => setSavedOpen((v) => !v)}
+              aria-label={t('saved.title')}
+              title={t('saved.title')}
+              className={`fixed bottom-24 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
+                savedOpen ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
+              }`}
+            >
+              <FontAwesomeIcon icon={faBookmark} />
+            </button>
+          )}
+          {canSearch && (
+            <button
+              onClick={() => {
+                if (searchMode) handleClearSearch();
+                setSearchMode((v) => !v);
+              }}
+              aria-label={t('search.toggle')}
+              title={t('search.toggle')}
+              className={`fixed bottom-40 left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
+                searchMode ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
+              }`}
+            >
+              <FontAwesomeIcon icon={faBullseye} />
+            </button>
+          )}
           <UserLocationButton
             map={mapRef.current}
             onLocate={handleLocate}
