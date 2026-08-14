@@ -452,7 +452,8 @@ export function MapPage() {
         searchPosition={searchPosition}
         searchArea={searchArea}
         candidates={candidates}
-        sharedLocations={sharedLocations}
+        sharedLocations={sharedLocations.filter((l) => l.userId !== user?.id)}
+        selfUser={user}
         onMapReady={handleMapReady}
         onBoundsChange={handleBoundsChange}
         onSelect={(id) => {

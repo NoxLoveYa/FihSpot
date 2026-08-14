@@ -54,6 +54,7 @@ interface GoogleMapViewProps {
   searchArea: { lat: number; lng: number } | null;
   candidates: LatLng[];
   sharedLocations: LocationShare[];
+  selfUser: { name: string; avatarUrl: string | null } | null;
   onMapReady: (map: google.maps.Map) => void;
   onBoundsChange: (bounds: Bounds) => void;
   onSelect: (id: string) => void;
@@ -70,6 +71,7 @@ export function GoogleMapView({
   searchArea,
   candidates,
   sharedLocations,
+  selfUser,
   onMapReady,
   onBoundsChange,
   onSelect,
@@ -442,7 +444,9 @@ export function GoogleMapView({
       userMarkerRef.current = new AdvancedMarkerElement({
         map,
         position,
-        content: makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
+        // Our own location marker is our avatar (from our tracked position),
+        // never the server-shared entry — that one only shows for other users.
+        content: selfUser ? makeShareContent(selfUser.name, selfUser.avatarUrl) : makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
         zIndex: 1000,
         anchorLeft: '-50%',
         anchorTop: '-50%',
@@ -450,7 +454,7 @@ export function GoogleMapView({
     } else {
       userMarkerRef.current.position = position;
     }
-  }, [map, userPosition]);
+  }, [map, userPosition, selfUser]);
 
   // Shared-location markers (avatar per sharer). Created once per user and
   // moved in place on each poll; removed when a user stops sharing.
