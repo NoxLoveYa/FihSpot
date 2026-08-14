@@ -1,9 +1,11 @@
 {
-	# HTTP/3 (QUIC over UDP) is disabled: mobile carriers' NAT drops the stale
-	# UDP session after the browser closes, and the next launch hangs trying to
-	# resume HTTP/3 (alt-svc cached 30 days) instead of falling back to TCP.
+	# Only HTTP/1.1 to clients. Mobile carriers' NAT drops idle connections, and
+	# iOS standalone apps over cellular fail with "network connection lost" when
+	# they reuse a stale HTTP/2 connection from another process. HTTP/3 (QUIC)
+	# is also disabled for the same reason: a fresh TCP connection per launch is
+	# the reliable path on mobile networks.
 	servers :443 {
-		protocols h1 h2
+		protocols h1
 	}
 }
 
