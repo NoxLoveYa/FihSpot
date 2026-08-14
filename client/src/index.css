@@ -9,13 +9,24 @@
     height: 100%;
   }
 
-  /* Mobile full-screen: fill the dynamic viewport so the map stays behind the
-     browser chrome (Dynamic Island / status bar / URL bar) and never jumps. */
-  @supports (height: 100dvh) {
+  /* Mobile full-screen: fill the viewport so the map stays behind the browser
+     chrome (Dynamic Island / status bar / URL bar) and never jumps. In an
+     installed iOS "Add to Home Screen" app, svh/dvh can be reported frozen at
+     the launch-transition size (too short), leaving the page background visible
+     under the map. 100vh is the stable large viewport (full screen in
+     standalone), so the shell can never come up shorter than the screen; the
+     map page clips the excess with overflow. */
+  html,
+  body,
+  #root {
+    height: 100vh;
+  }
+
+  @supports (height: max(100vh, 100dvh)) {
     html,
     body,
     #root {
-      height: 100dvh;
+      height: max(100vh, 100dvh);
     }
   }
 
@@ -27,6 +38,8 @@
     /* Block double-tap page zoom and the 300ms tap delay while letting
        dedicated gestures (Google Maps pan/pinch) work on their own layers. */
     touch-action: manipulation;
+    /* Stop pull-to-refresh / rubber-banding on the full-screen map page. */
+    overscroll-behavior: none;
   }
 
   .dark html {
@@ -365,5 +378,42 @@
   border-radius: 50%;
   border: 3px solid rgba(13, 148, 136, 0.45);
   animation: selectedPulse 1.8s ease-out infinite;
+}
+
+/* Google's base map chrome: the Maps JS API still renders these even with all
+   controls disabled. Keep the Google logo (bottom-left); hide the attribution
+   block (Map data / Terms of Use / Report a map error, bottom-right) and the
+   Keyboard shortcuts link + popup. */
+.gm-style .gm-style-cc,
+.gm-style .gm-style-cc * {
+  display: none !important;
+}
+
+.gm-style a[href*="terms_maps"],
+.gm-style a[href*="help/legal"],
+.gm-style a[title="Report a map error"],
+.gm-style a[title*="port a map error"] {
+  display: none !important;
+}
+
+.gm-style a[title*="eyboard"] {
+  display: none !important;
+}
+
+/* Hide Google's bundled control (the zoom/rotate/fullscreen cluster at the
+   bottom of the map); the app draws its own controls. */
+.gm-style .gm-bundled-control-on-bottom {
+  display: none !important;
+}
+
+/* Hide Google's camera/rotate control (the tilt/rotate button shown in
+   satellite mode). */
+.gmp-internal-camera-control {
+  display: none !important;
+}
+
+.gm-style [role="dialog"][aria-label*="eyboard"],
+.gm-style [role="dialog"][aria-label*="eyboard"] * {
+  display: none !important;
 }
 

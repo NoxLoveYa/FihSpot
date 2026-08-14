@@ -10,7 +10,6 @@ import type {
   PoI,
   PoISummary,
   Role,
-  Search,
   User,
   UserContent,
 } from './types';
@@ -189,14 +188,6 @@ export const api = {
   // Seen tracking
   markSeen: (poiId: string) => request<{ seen: boolean }>(`/pois/${poiId}/seen`, { method: 'POST' }),
   unmarkSeen: (poiId: string) => request<{ seen: boolean }>(`/pois/${poiId}/seen`, { method: 'DELETE' }),
-
-  // Saved searches
-  createSearch: (data: { name?: string; lat: number; lng: number; zoom: number }) =>
-    request<{ search: Search }>('/searches', { method: 'POST', body: JSON.stringify(data) }),
-  listSearches: () => request<{ searches: Search[] }>('/searches'),
-  updateSearch: (id: string, data: { name: string }) =>
-    request<{ search: Search }>(`/searches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteSearch: (id: string) => request<void>(`/searches/${id}`, { method: 'DELETE' }),
 
   // Comments
   addComment: (poiId: string, content: string) =>

@@ -1,10 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faBookmark,
   faCamera,
   faCirclePlus,
   faComment,
@@ -14,12 +12,10 @@ import {
   faFish,
   faLocationDot,
   faMinus,
-  faRotate,
-  faTrashCan,
   faWater,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
-import type { PoISummary, Search } from '../api/types';
+import type { PoISummary } from '../api/types';
 import type { LatLng } from '../lib/googleMaps';
 import type { DetectedWater, ScanSensitivity } from '../lib/waterScan';
 import { SCAN_SENSITIVITIES, SCAN_WATER_COLOR, haversineKm } from '../lib/waterScan';
@@ -27,7 +23,6 @@ import { api, ApiError } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Skeleton, Spinner } from './Spinner';
-import { Button } from './Button';
 
 function formatDistance(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m`;
@@ -38,64 +33,44 @@ interface SearchPanelProps {
   position: { lat: number; lng: number } | null;
   pois: PoISummary[];
   loading: boolean;
-  activeSearchId: string | null;
   minimized: boolean;
   candidates: DetectedWater[];
   scanning: boolean;
-  scanProgress?: { done: number; total: number } | null;
   cachedCount?: number;
   previewUrl: string | null;
   previewSize: { width: number; height: number } | null;
   sensitivity: ScanSensitivity;
-  zoom: number;
   onSensitivityChange: (sensitivity: ScanSensitivity) => void;
-  onScan: (area: { lat: number; lng: number }) => void;
   onAddCandidate: (latlng: LatLng) => void;
   onCenter: (latlng: LatLng) => void;
   onClose: () => void;
   onMinimize: () => void;
   onSelect: (id: string) => void;
   onToggleSeen: (poiId: string, seen: boolean) => void;
-  onSaved: (search: Search) => void;
-  onDeleted: () => void;
-  onRenamed: () => void;
 }
 
 export function SearchPanel({
   position,
   pois,
   loading,
-  activeSearchId,
   minimized,
   candidates,
   scanning,
-  scanProgress,
   cachedCount,
   previewUrl,
   previewSize,
   sensitivity,
-  zoom,
   onSensitivityChange,
-  onScan,
   onAddCandidate,
   onCenter,
   onClose,
   onMinimize,
   onSelect,
   onToggleSeen,
-  onSaved,
-  onDeleted,
-  onRenamed,
 }: SearchPanelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
-  const [saving, setSaving] = useState(false);
-  const [savingName, setSavingName] = useState(false);
-  const [name, setName] = useState('');
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
-  const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [minCardHeight, setMinCardHeight] = useState(0);
@@ -127,59 +102,6 @@ export function SearchPanel({
       ro.disconnect();
     };
   }, [pois, loading, minCardHeight]);
-
-  async function saveSearch(e: FormEvent) {
-    e.preventDefault();
-    if (!position) return;
-    setSaving(true);
-    try {
-      const { search } = await api.createSearch({
-        name: name.trim() || undefined,
-        lat: position.lat,
-        lng: position.lng,
-        zoom,
-      });
-      setSavingName(false);
-      setName('');
-      toast(t('search.saved'), 'success');
-      onSaved(search);
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : t('search.genericError'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function renameSearch(e: FormEvent) {
-    e.preventDefault();
-    if (!activeSearchId || !renameValue.trim()) return;
-    setSaving(true);
-    try {
-      await api.updateSearch(activeSearchId, { name: renameValue.trim() });
-      setRenaming(false);
-      toast(t('search.renamed'), 'success');
-      onRenamed();
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : t('search.genericError'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteSearch() {
-    if (!activeSearchId) return;
-    if (!window.confirm(t('search.deleteConfirm'))) return;
-    setDeleting(true);
-    try {
-      await api.deleteSearch(activeSearchId);
-      toast(t('search.deleted'), 'success');
-      onDeleted();
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : t('search.genericError'), 'error');
-    } finally {
-      setDeleting(false);
-    }
-  }
 
   async function toggleSeen(poi: PoISummary) {
     setTogglingId(poi.id);
@@ -258,33 +180,6 @@ export function SearchPanel({
                 ))}
               </div>
             </div>
-
-            <button
-              onClick={() => onScan(position)}
-              disabled={scanning}
-              className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-70 ${
-                scanning
-                  ? 'glass text-slate-500'
-                  : 'bg-teal-600 text-white shadow-float hover:bg-teal-700'
-              }`}
-            >
-              {scanning ? (
-                <>
-                  <Spinner className="h-4 w-4 border-slate-300 border-t-teal-600" />
-                  {t('scan.scanning')}
-                  {scanProgress && scanProgress.total > 1 && (
-                    <span className="text-xs opacity-80">
-                      {scanProgress.done}/{scanProgress.total}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <FontAwesomeIcon icon={faWater} className="h-4 w-4" />
-                  {t('scan.button')}
-                </>
-              )}
-            </button>
 
             {(scanning || previewUrl) && (
               <div className="space-y-2">
@@ -386,74 +281,6 @@ export function SearchPanel({
                   ))}
                 </ul>
               </div>
-            )}
-
-            {activeSearchId ? (
-              <div className="glass flex flex-col gap-2 rounded-2xl p-3">
-                <div className="flex items-center justify-between gap-2">
-                  {renaming ? (
-                    <form onSubmit={renameSearch} className="flex min-w-0 flex-1 items-center gap-2">
-                      <input
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white/80 px-2.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-800"
-                      />
-                      <Button type="submit" disabled={saving} className="!min-h-[36px] px-3 py-1.5">
-                        {saving ? <Spinner className="h-4 w-4" /> : t('admin.actions.save')}
-                      </Button>
-                    </form>
-                  ) : (
-                    <p className="min-w-0 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      {t('search.savedBadge')}
-                    </p>
-                  )}
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setRenaming((v) => !v);
-                        setRenameValue('');
-                      }}
-                      aria-label={t('search.rename')}
-                      title={t('search.rename')}
-                      className="glass grid h-8 w-8 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
-                    >
-                      <FontAwesomeIcon icon={faRotate} className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={deleteSearch}
-                      disabled={deleting}
-                      aria-label={t('search.delete')}
-                      title={t('search.delete')}
-                      className="glass grid h-8 w-8 place-items-center rounded-full text-rose-500 transition-colors hover:brightness-105 disabled:opacity-60"
-                    >
-                      {deleting ? <Spinner className="h-3.5 w-3.5" /> : <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : savingName ? (
-              <form onSubmit={saveSearch} className="glass flex flex-col gap-2 rounded-2xl p-3">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('search.namePlaceholder')}
-                  autoFocus
-                  className="h-11 rounded-xl border border-slate-200 bg-white/80 px-3.5 text-sm outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800"
-                />
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={saving} className="flex-1">
-                    {saving ? <Spinner /> : t('search.save')}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setSavingName(false)} className="flex-1">
-                    {t('search.cancel')}
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <Button variant="secondary" onClick={() => setSavingName(true)} className="w-full">
-                <FontAwesomeIcon icon={faBookmark} className="h-4 w-4 text-brand-500" />
-                {t('search.saveArea')}
-              </Button>
             )}
 
             <div>

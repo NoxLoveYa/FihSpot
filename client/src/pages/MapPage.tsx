@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookmark, faBullseye, faFish } from '@fortawesome/free-solid-svg-icons';
+import { faFish } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
-import type { Bounds, PoISummary, Search } from '../api/types';
+import type { Bounds, PoISummary } from '../api/types';
 import { api, getCachedPois, setCachedPois } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -13,13 +13,13 @@ import { scanForWater, haversineKm } from '../lib/waterScan';
 import type { ScanSensitivity } from '../lib/waterScan';
 import { SCAN_SENSITIVITIES } from '../lib/waterScan';
 import { GoogleMapView } from '../components/GoogleMapView';
+import type { PickKind } from '../components/GoogleMapView';
 import type { MapType } from '../components/MapTypeToggle';
 import { PoiDrawer } from '../components/PoiDrawer';
 import { AddPoiPanel } from '../components/AddPoiPanel';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationButton } from '../components/UserLocationButton';
 import { SearchPanel } from '../components/SearchPanel';
-import { SavedSearchesPanel } from '../components/SavedSearchesPanel';
 import { Navbar } from '../components/Navbar';
 import { FullScreenLoader, Spinner } from '../components/Spinner';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -52,18 +52,12 @@ export function MapPage() {
   // Spot search state — lifted into a session context so it survives SPA
   // navigation (resets on a full page refresh).
   const {
-    searchMode,
-    setSearchMode,
     searchArea,
     setSearchArea,
-    activeSearchId,
-    setActiveSearchId,
     candidates,
     setCandidates,
     searchPois,
     setSearchPois,
-    savedOpen,
-    setSavedOpen,
     minimized,
     setMinimized,
     previewUrl,
@@ -73,12 +67,9 @@ export function MapPage() {
   } = useSearchSession();
 
   const [searchLoading, setSearchLoading] = useState(false);
-  const [savedSearches, setSavedSearches] = useState<Search[]>([]);
-  const [savedLoading, setSavedLoading] = useState(false);
 
   // Pond scan state (transient)
   const [scanning, setScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
   const [scanCached, setScanCached] = useState(0);
   const lastScanRef = useRef<string | null>(null);
   const [sensitivity, setSensitivity] = useState<ScanSensitivity>(() => {
@@ -180,17 +171,8 @@ export function MapPage() {
     }
   }, [toast, t]);
 
-  // When a saved search is opened the map first moves to its saved spot; the
-  // bounds callback below picks up the new viewport once it settles, so skip
-  // loading here with the stale pre-move bounds.
-  const skipNextSearchLoadRef = useRef(false);
-
   useEffect(() => {
     if (!searchArea) return;
-    if (skipNextSearchLoadRef.current) {
-      skipNextSearchLoadRef.current = false;
-      return;
-    }
     void loadSearchBounds();
   }, [searchArea, loadSearchBounds]);
 
@@ -213,22 +195,19 @@ export function MapPage() {
   // If search access is revoked (or the user logs out), drop any active search
   // session so the feature can't stay open.
   useEffect(() => {
-    if (!canSearch && (searchMode || searchArea)) {
+    if (!canSearch && searchArea) {
       handleClearSearch();
     }
-  }, [canSearch, searchMode, searchArea, handleClearSearch]);
+  }, [canSearch, searchArea, handleClearSearch]);
 
   const handleCloseDrawer = useCallback(() => setSelectedId(null), []);
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number }) => {
       setScanning(true);
-      setScanProgress(null);
       setScanCached(0);
       try {
-        const { candidates: found, previewUrl, width, height, cachedCount } = await scanForWater(area, sensitivity, {
-          onProgress: (done, total) => setScanProgress({ done, total }),
-        });
+        const { candidates: found, previewUrl, width, height, cachedCount } = await scanForWater(area, sensitivity);
         const pois = searchPois.map((p) => ({ lat: p.lat, lng: p.lng }));
         const filtered = found.filter((c) => !pois.some((p) => haversineKm(p, c) < 0.08));
         setPreview(previewUrl, { width, height });
@@ -241,7 +220,6 @@ export function MapPage() {
         toast(t('scan.error'), 'error');
       } finally {
         setScanning(false);
-        setScanProgress(null);
       }
     },
     [sensitivity, searchPois, setPreview, toast, t],
@@ -255,21 +233,24 @@ export function MapPage() {
     runScan(searchArea);
   }, [searchArea, sensitivity, runScan]);
 
+  // Desktop: left-click places a POI, right-click a scan marker. Mobile: a
+  // single tap places a scan marker, a double-tap a POI. The map view resolves
+  // the gesture and reports its intent here.
   const handlePick = useCallback(
-    (latlng: LatLng) => {
-      if (searchMode) {
+    (latlng: LatLng, kind: PickKind) => {
+      if (kind === 'scan') {
         setSelectedId(null);
         setDraftPosition(null);
         setSearchPosition(null);
-        setActiveSearchId(null);
         setSearchArea({ lat: latlng.lat, lng: latlng.lng });
         return;
       }
-      setDraftPosition(latlng);
+      handleClearSearch();
       setSelectedId(null);
+      setDraftPosition(latlng);
       setSearchPosition(null);
     },
-    [searchMode],
+    [handleClearSearch],
   );
 
   const handleSearchSelect = useCallback((lat: number, lng: number) => {
@@ -370,51 +351,6 @@ export function MapPage() {
     [pendingFocus, panToPoi, shouldAutoLocate, toast, t],
   );
 
-  const loadSavedSearches = useCallback(async () => {
-    setSavedLoading(true);
-    try {
-      const { searches } = await api.listSearches();
-      setSavedSearches(searches);
-    } catch (e) {
-      toast(t('saved.loadError'), 'error');
-    } finally {
-      setSavedLoading(false);
-    }
-  }, [toast, t]);
-
-  const handleOpenSaved = useCallback((search: Search) => {
-    setSavedOpen(false);
-    setSearchMode(true);
-    setSelectedId(null);
-    setDraftPosition(null);
-    setSearchPosition(null);
-    setActiveSearchId(search.id);
-    setCandidates([]);
-    setSearchPois([]);
-    lastScanRef.current = null;
-    // The zone of a saved search is its saved viewport (center + zoom). Skip
-    // the auto bounds-load on searchArea change; the map move below triggers
-    // an idle event that loads the results for the restored viewport.
-    skipNextSearchLoadRef.current = true;
-    setSearchArea({ lat: search.lat, lng: search.lng });
-    mapRef.current?.panTo({ lat: search.lat, lng: search.lng });
-    mapRef.current?.setZoom(search.zoom);
-  }, []);
-
-  const handleDeleteSaved = useCallback(
-    async (id: string) => {
-      try {
-        await api.deleteSearch(id);
-        setSavedSearches((prev) => prev.filter((s) => s.id !== id));
-        if (activeSearchId === id) setActiveSearchId(null);
-        toast(t('search.deleted'), 'success');
-      } catch (e) {
-        toast(t('saved.loadError'), 'error');
-      }
-    },
-    [activeSearchId, toast, t],
-  );
-
   const handleToggleSeen = useCallback((poiId: string, seen: boolean) => {
     setSearchPois((prev) => prev.map((p) => (p.id === poiId ? { ...p, seen } : p)));
     setPois((prev) => prev.map((p) => (p.id === poiId ? { ...p, seen } : p)));
@@ -463,15 +399,6 @@ export function MapPage() {
         </div>
       )}
 
-      {canSearch && searchMode && !searchArea && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-[1150] flex justify-center">
-          <div className="glass flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-200">
-            <FontAwesomeIcon icon={faBullseye} className="h-4 w-4 text-brand-500" />
-            {t('search.tapMap')}
-          </div>
-        </div>
-      )}
-
       <PoiDrawer
         poiId={selectedId}
         onClose={handleCloseDrawer}
@@ -495,41 +422,20 @@ export function MapPage() {
           position={searchArea}
           pois={searchPois}
           loading={searchLoading}
-          activeSearchId={activeSearchId}
           minimized={minimized}
           candidates={candidates}
           scanning={scanning}
-          scanProgress={scanProgress}
           cachedCount={scanCached}
           previewUrl={previewUrl}
           previewSize={previewSize}
           sensitivity={sensitivity}
-          zoom={mapRef.current?.getZoom() ?? 14}
           onSensitivityChange={setSensitivity}
-          onScan={runScan}
           onAddCandidate={handleAddCandidate}
           onCenter={(latlng) => panToPoi(latlng.lat, latlng.lng)}
           onClose={handleClearSearch}
           onMinimize={() => setMinimized(true)}
           onSelect={(id) => setSelectedId(id)}
           onToggleSeen={handleToggleSeen}
-          onSaved={(search) => {
-            setActiveSearchId(search.id);
-            loadSavedSearches();
-          }}
-          onDeleted={handleClearSearch}
-          onRenamed={loadSavedSearches}
-        />
-      )}
-
-      {canSearch && (
-        <SavedSearchesPanel
-          open={savedOpen}
-          searches={savedSearches}
-          loading={savedLoading}
-          onClose={() => setSavedOpen(false)}
-          onOpen={handleOpenSaved}
-          onDelete={handleDeleteSaved}
         />
       )}
 
@@ -551,41 +457,12 @@ export function MapPage() {
       )}
 
       {!selectedId && (
-        <>
-          {canSearch && (
-            <button
-              onClick={() => setSavedOpen((v) => !v)}
-              aria-label={t('saved.title')}
-              title={t('saved.title')}
-              className={`fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
-                savedOpen ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
-              }`}
-            >
-              <FontAwesomeIcon icon={faBookmark} />
-            </button>
-          )}
-          {canSearch && (
-            <button
-              onClick={() => {
-                if (searchMode) handleClearSearch();
-                setSearchMode((v) => !v);
-              }}
-              aria-label={t('search.toggle')}
-              title={t('search.toggle')}
-              className={`fixed bottom-[calc(10rem+env(safe-area-inset-bottom))] left-4 z-[1500] grid h-12 w-12 place-items-center rounded-full text-lg transition-all hover:brightness-105 active:scale-95 ${
-                searchMode ? 'bg-brand-600 text-white shadow-float' : 'glass text-slate-600 dark:text-slate-200'
-              }`}
-            >
-              <FontAwesomeIcon icon={faBullseye} />
-            </button>
-          )}
-          <UserLocationButton
-            map={mapRef.current}
-            onLocate={handleLocate}
-            locating={locating}
-            onLocatingChange={setLocating}
-          />
-        </>
+        <UserLocationButton
+          map={mapRef.current}
+          onLocate={handleLocate}
+          locating={locating}
+          onLocatingChange={setLocating}
+        />
       )}
 
       {locating && (

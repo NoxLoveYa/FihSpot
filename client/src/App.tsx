@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -24,12 +24,33 @@ const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default:
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
 
 function PageTransition({ children }: { children: ReactNode }) {
+  const signalReMeasure = useCallback(() => {
+    window.dispatchEvent(new Event('fihspot:page-animated'));
+  }, []);
+
+  useEffect(() => {
+    // On the very first render AnimatePresence `initial={false}` suppresses the
+    // enter animation, so `onAnimationComplete` below never fires and the map
+    // (which measures its canvas at init, possibly during the iOS launch
+    // transition) never re-measures. Signal it right after mount and again a
+    // moment later in case the viewport/container only settled afterwards.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(signalReMeasure));
+    const timeout = setTimeout(signalReMeasure, 500);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+    };
+  }, [signalReMeasure]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      // The enter animation finishing means the page layout has settled — the
+      // map re-measures itself on this signal.
+      onAnimationComplete={signalReMeasure}
       className="h-full w-full"
     >
       {children}

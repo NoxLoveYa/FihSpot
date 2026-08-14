@@ -25,16 +25,6 @@ export interface PoISummary {
   seen?: boolean;
 }
 
-export interface Search {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  zoom: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface Comment {
   id: string;
   content: string;

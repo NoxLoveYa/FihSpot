@@ -14,18 +14,12 @@ interface PreviewInfo {
 }
 
 interface SearchSessionValue {
-  searchMode: boolean;
-  setSearchMode: Dispatch<SetStateAction<boolean>>;
   searchArea: SearchArea | null;
   setSearchArea: Dispatch<SetStateAction<SearchArea | null>>;
-  activeSearchId: string | null;
-  setActiveSearchId: Dispatch<SetStateAction<string | null>>;
   candidates: DetectedWater[];
   setCandidates: Dispatch<SetStateAction<DetectedWater[]>>;
   searchPois: PoISummary[];
   setSearchPois: Dispatch<SetStateAction<PoISummary[]>>;
-  savedOpen: boolean;
-  setSavedOpen: Dispatch<SetStateAction<boolean>>;
   minimized: boolean;
   setMinimized: Dispatch<SetStateAction<boolean>>;
   previewUrl: string | null;
@@ -37,12 +31,9 @@ interface SearchSessionValue {
 const SearchSessionContext = createContext<SearchSessionValue | null>(null);
 
 export function SearchSessionProvider({ children }: { children: ReactNode }) {
-  const [searchMode, setSearchMode] = useState(false);
   const [searchArea, setSearchArea] = useState<SearchArea | null>(null);
-  const [activeSearchId, setActiveSearchId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<DetectedWater[]>([]);
   const [searchPois, setSearchPois] = useState<PoISummary[]>([]);
-  const [savedOpen, setSavedOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [preview, setPreviewState] = useState<PreviewInfo>({ url: null, size: null });
   const previewUrlRef = useRef<string | null>(null);
@@ -58,30 +49,21 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const clearSearch = useCallback(() => {
-    setSearchMode(false);
     setSearchArea(null);
-    setActiveSearchId(null);
     setCandidates([]);
     setSearchPois([]);
-    setSavedOpen(false);
     setMinimized(false);
     setPreview(null, null);
   }, [setPreview]);
 
   const value = useMemo<SearchSessionValue>(
     () => ({
-      searchMode,
-      setSearchMode,
       searchArea,
       setSearchArea,
-      activeSearchId,
-      setActiveSearchId,
       candidates,
       setCandidates,
       searchPois,
       setSearchPois,
-      savedOpen,
-      setSavedOpen,
       minimized,
       setMinimized,
       previewUrl: preview.url,
@@ -89,18 +71,7 @@ export function SearchSessionProvider({ children }: { children: ReactNode }) {
       setPreview,
       clearSearch,
     }),
-    [
-      searchMode,
-      searchArea,
-      activeSearchId,
-      candidates,
-      searchPois,
-      savedOpen,
-      minimized,
-      preview,
-      setPreview,
-      clearSearch,
-    ],
+    [searchArea, candidates, searchPois, minimized, preview, setPreview, clearSearch],
   );
 
   return <SearchSessionContext.Provider value={value}>{children}</SearchSessionContext.Provider>;
