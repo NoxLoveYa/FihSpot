@@ -6,12 +6,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
   faCamera,
+  faCheck,
+  faChevronDown,
   faComment,
   faExpand,
   faFish,
   faLocationDot,
   faMagnifyingGlass,
   faMapPin,
+  faUser,
+  faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import type { PoISummary } from '../api/types';
 import { api, ApiError } from '../api/client';
@@ -49,9 +53,9 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
           onClick();
         }
       }}
-      className="glass-strong group flex cursor-pointer flex-col overflow-hidden rounded-3xl text-left transition-all hover:-translate-y-1 hover:shadow-float"
+      className="glass-strong group flex h-[400px] cursor-pointer flex-col overflow-hidden rounded-3xl text-left transition-all hover:-translate-y-1 hover:shadow-float"
     >
-      <div className="relative aspect-[2/1] w-full overflow-hidden">
+      <div className="relative h-40 w-full shrink-0 overflow-hidden">
         {mapUrl && !imgError ? (
           <img
             src={mapUrl}
@@ -141,6 +145,134 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
   );
 }
 
+interface UserOption {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+function UserAvatar({ user, size }: { user: UserOption; size?: string }) {
+  const cls = size ?? 'h-6 w-6 text-[10px]';
+  return user.avatarUrl ? (
+    <img src={user.avatarUrl} alt="" className={`${cls} shrink-0 rounded-full object-cover`} />
+  ) : (
+    <span
+      className={`grid ${cls} shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700 dark:bg-brand-900/60 dark:text-brand-200`}
+    >
+      {user.name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function UserFilter({
+  users,
+  selectedIds,
+  onToggle,
+  onSetAll,
+}: {
+  users: UserOption[];
+  selectedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onSetAll: (all: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const count = selectedIds.size;
+  const allSelected = users.length > 0 && count === users.length;
+  const single = count === 1 ? users.find((u) => selectedIds.has(u.id)) ?? null : null;
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent | MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  const optionCls = (active: boolean) =>
+    `flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold transition-colors ${
+      active
+        ? 'bg-brand-500/15 text-brand-700 dark:text-brand-200'
+        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
+    }`;
+
+  const check = (checked: boolean) => (
+    <span
+      className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
+        checked ? 'border-brand-500 bg-brand-500 text-white' : 'border-slate-300 dark:border-slate-600'
+      }`}
+    >
+      {checked && <FontAwesomeIcon icon={faCheck} className="h-3 w-3" />}
+    </span>
+  );
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('pois.filterUser')}
+        className="glass flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-bold text-slate-700 transition-all hover:brightness-105 dark:text-slate-200"
+      >
+        {single ? (
+          <UserAvatar user={single} size="h-6 w-6 text-[11px]" />
+        ) : (
+          <FontAwesomeIcon icon={count > 0 ? faUser : faUsers} className="h-3.5 w-3.5 text-brand-500" />
+        )}
+        <span className="max-w-[10rem] truncate">
+          {count === 0
+            ? t('pois.allUsers')
+            : single
+              ? single.name
+              : `${count} ${t('pois.users')}`}
+        </span>
+        <FontAwesomeIcon icon={faChevronDown} className={`h-3 w-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            role="listbox"
+            aria-multiselectable="true"
+            className="glass-strong absolute right-0 z-50 mt-2 max-h-[60dvh] w-64 overflow-y-auto rounded-2xl p-1.5 shadow-float"
+          >
+            <button role="option" aria-selected={allSelected} onClick={() => onSetAll(!allSelected)} className={optionCls(allSelected)}>
+              {check(allSelected)}
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-300">
+                <FontAwesomeIcon icon={faUsers} className="h-3.5 w-3.5" />
+              </span>
+              {t('pois.allUsers')}
+            </button>
+
+            <div className="mx-2 my-1 h-px bg-slate-200/70 dark:bg-slate-700" />
+
+            {users.map((u) => (
+              <button
+                key={u.id}
+                role="option"
+                aria-selected={selectedIds.has(u.id)}
+                onClick={() => onToggle(u.id)}
+                className={optionCls(selectedIds.has(u.id))}
+              >
+                {check(selectedIds.has(u.id))}
+                <UserAvatar user={u} size="h-7 w-7 text-xs" />
+                <span className="min-w-0 flex-1 truncate">{u.name}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function PoisPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -149,6 +281,7 @@ export function PoisPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>('newest');
+  const [userIds, setUserIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -177,14 +310,51 @@ export function PoisPage() {
     load();
   }, [load]);
 
+  // Distinct POI creators for the "filter by user" selector.
+  const users = useMemo(() => {
+    const map = new Map<string, UserOption>();
+    pois.forEach((p) => {
+      if (!map.has(p.createdBy.id)) {
+        map.set(p.createdBy.id, {
+          id: p.createdBy.id,
+          name: p.createdBy.name,
+          avatarUrl: p.createdBy.avatarUrl ?? null,
+        });
+      }
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [pois]);
+
+  const toggleUser = useCallback((id: string) => {
+    setUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const setAllUsers = useCallback(
+    (all: boolean) => {
+      setUserIds(all ? new Set(users.map((u) => u.id)) : new Set());
+    },
+    [users],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q.length === 0 ? pois : pois.filter((p) => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(q));
+    let list = pois;
+    if (q.length > 0) {
+      list = list.filter((p) => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(q));
+    }
+    if (userIds.size > 0) {
+      list = list.filter((p) => userIds.has(p.createdBy.id));
+    }
     return [...list].sort((a, b) => {
       if (sort === 'commented') return b._count.comments - a._count.comments;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [pois, query, sort]);
+  }, [pois, query, sort, userIds]);
 
   return (
     <div className="page-shell">
@@ -203,76 +373,82 @@ export function PoisPage() {
             <LanguageToggle className="text-slate-600 dark:text-slate-200" />
           </div>
         </div>
-
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 pb-3">
-          <div className="glass flex items-center gap-2 rounded-2xl px-3.5">
-            <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('pois.searchPlaceholder')}
-              className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
-            />
-          </div>
-
-          <div className="flex items-center justify-end">
-            <label className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              <FontAwesomeIcon icon={faMapPin} className="h-3 w-3 text-brand-500" />
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as Sort)}
-                className="bg-transparent text-xs font-semibold outline-none dark:bg-slate-800"
-                aria-label={t('pois.sort')}
-              >
-                <option value="newest">{t('pois.sort.newest')}</option>
-                <option value="commented">{t('pois.sort.commented')}</option>
-              </select>
-            </label>
-          </div>
-        </div>
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
-        {loading ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="glass-strong overflow-hidden rounded-3xl">
-                <Skeleton className="h-36 w-full rounded-none" />
-                <div className="flex flex-col gap-2 p-4">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-4/5" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <FontAwesomeIcon icon={faLocationDot} className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('pois.noResults')}</p>
-          </div>
-        ) : (
-          <motion.div layout className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <AnimatePresence>
-              {filtered.map((poi) => (
-                <motion.div
-                  key={poi.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.2 }}
+        <div className="rounded-3xl border border-slate-200/60 bg-white/40 p-4 backdrop-blur-sm sm:p-6 dark:border-slate-700/60 dark:bg-slate-900/30">
+          <div className="flex flex-col gap-3">
+            <div className="glass flex items-center gap-2 rounded-2xl px-3.5">
+              <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('pois.searchPlaceholder')}
+                className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <FontAwesomeIcon icon={faMapPin} className="h-3 w-3 text-brand-500" />
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as Sort)}
+                  className="bg-transparent text-xs font-semibold outline-none dark:bg-slate-800"
+                  aria-label={t('pois.sort')}
                 >
-                  <PoisCard
-                    poi={poi}
-                    onClick={() => setSelectedId(poi.id)}
-                    onViewOnMap={() => navigate(`/?poi=${poi.id}`)}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
+                  <option value="newest">{t('pois.sort.newest')}</option>
+                  <option value="commented">{t('pois.sort.commented')}</option>
+                </select>
+              </label>
+
+              <UserFilter users={users} selectedIds={userIds} onToggle={toggleUser} onSetAll={setAllUsers} />
+            </div>
+          </div>
+
+          <div className="mt-5">
+            {loading ? (
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="glass-strong h-[400px] overflow-hidden rounded-3xl">
+                    <Skeleton className="h-40 w-full rounded-none" />
+                    <div className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-4/5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-20 text-center">
+                <FontAwesomeIcon icon={faLocationDot} className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('pois.noResults')}</p>
+              </div>
+            ) : (
+              <motion.div layout className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <AnimatePresence>
+                  {filtered.map((poi) => (
+                    <motion.div
+                      key={poi.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <PoisCard
+                        poi={poi}
+                        onClick={() => setSelectedId(poi.id)}
+                        onViewOnMap={() => navigate(`/?poi=${poi.id}`)}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </div>
+        </div>
       </div>
 
       <PoiDrawer

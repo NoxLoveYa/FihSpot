@@ -80,6 +80,9 @@ export const en = {
   'pois.sort': 'Sort',
   'pois.sort.newest': 'Newest',
   'pois.sort.commented': 'Most commented',
+  'pois.filterUser': 'User',
+  'pois.allUsers': 'All users',
+  'pois.users': 'users',
 
   'profile.back': 'Back',
   'profile.title': 'My profile',
