@@ -32,9 +32,11 @@ services:
       CLIENT_URL: ${CLIENT_URL:-https://fihspot.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_MAPS_SERVER_KEY: ${GOOGLE_MAPS_SERVER_KEY:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - ./server/uploads:/app/server/uploads
+      - scan_cache:/app/server/cache
 
   client:
     build:
@@ -66,3 +68,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  scan_cache:

@@ -1,3 +1,12 @@
+{
+	# HTTP/3 (QUIC over UDP) is disabled: mobile carriers' NAT drops the stale
+	# UDP session after the browser closes, and the next launch hangs trying to
+	# resume HTTP/3 (alt-svc cached 30 days) instead of falling back to TCP.
+	servers :443 {
+		protocols h1 h2
+	}
+}
+
 fihspot.com {
 	reverse_proxy client:80
 }

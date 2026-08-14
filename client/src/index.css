@@ -20,9 +20,17 @@
   }
 
   html {
+    /* Paint the bottom safe-area / home-indicator strip with the theme
+       background: without this, iOS falls back to the manifest's light
+       `background_color` and leaves an unfilled band at the bottom. */
+    background-color: #f8fafc;
     /* Block double-tap page zoom and the 300ms tap delay while letting
        dedicated gestures (Google Maps pan/pinch) work on their own layers. */
     touch-action: manipulation;
+  }
+
+  .dark html {
+    background-color: #0f172a;
   }
 
   body {
@@ -109,6 +117,10 @@
     position: relative;
     isolation: isolate;
     min-height: 100%;
+    min-height: 100dvh;
+    /* Clear the home indicator / browser bar so the last row of content is
+       reachable while the background still fills the whole screen. */
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
     overflow-y: auto;
     background-color: #f8fafc;
     background-image:

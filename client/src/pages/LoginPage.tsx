@@ -41,7 +41,7 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-emerald-50 px-4 py-10 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-      <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
+      <div className="fixed right-4 top-[max(env(safe-area-inset-top),1rem)] z-50 flex items-center gap-2">
         <ThemeToggle className="text-slate-600 dark:text-slate-200" />
         <LanguageToggle className="text-slate-600 dark:text-slate-200" />
       </div>

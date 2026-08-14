@@ -1,5 +1,4 @@
 /// <reference types="vite/client" />
-/// <reference types="vite-plugin-pwa/client" />
 /// <reference types="@types/google.maps" />
 
 interface ImportMetaEnv {

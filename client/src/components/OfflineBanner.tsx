@@ -25,7 +25,7 @@ export function OfflineBanner() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.25 }}
-          className="pointer-events-none fixed inset-x-0 top-16 z-[1800] flex justify-center px-4"
+          className="pointer-events-none fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-[1800] flex justify-center px-4"
         >
           <div className="pointer-events-auto rounded-full bg-slate-900/70 px-4 py-2 text-xs font-semibold text-white shadow-soft backdrop-blur-md ring-1 ring-white/10">
             {t('offline.banner')}

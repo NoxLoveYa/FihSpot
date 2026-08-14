@@ -40,18 +40,20 @@ export function staticMapUrl(lat: number, lng: number, size = '600x300'): string
 }
 
 /**
- * Static map of an area whose water fill is recolored to the dark-theme water
- * color (#68bfd9), so ponds show up as exactly that color for detection.
+ * Scan tile served by OUR server (`/api/scan/tile`), which proxies the Google
+ * Maps Static API and caches the tiles on the server side. Nothing is stored
+ * in the client's Cache Storage anymore, so repeat scans of a zone hit the
+ * server cache and the origin's iOS storage quota stays low. The water fill is
+ * recolored to the dark-theme water color (#68bfd9) so ponds show up as
+ * exactly that color for detection.
  */
-export function staticMapForScan(center: LatLng, zoom: number, size: number): string | null {
-  if (!API_KEY) return null;
+export function scanTileUrl(lat: number, lng: number, zoom: number, size: number): string {
   const params = new URLSearchParams({
-    center: `${center.lat},${center.lng}`,
+    lat: lat.toFixed(6),
+    lng: lng.toFixed(6),
     zoom: String(zoom),
-    size: `${size}x${size}`,
+    size: String(size),
     scale: '2',
-    style: 'feature:water|element:geometry.fill|color:0x68bfd9',
-    key: API_KEY,
   });
-  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+  return `/api/scan/tile?${params.toString()}`;
 }

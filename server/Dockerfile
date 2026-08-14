@@ -19,6 +19,6 @@ COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/server/prisma ./server/prisma
 COPY --from=build /app/server/package.json ./server/package.json
 WORKDIR /app/server
-RUN mkdir -p uploads
+RUN mkdir -p uploads cache/scan-tiles
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

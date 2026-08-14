@@ -188,7 +188,7 @@ export function PoisPage() {
 
   return (
     <div className="page-shell">
-      <div className="glass sticky top-0 z-40">
+      <div className="glass sticky top-0 z-40 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
           <button
             onClick={() => navigate('/')}

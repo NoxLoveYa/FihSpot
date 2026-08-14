@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   build: {
@@ -18,64 +17,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      manifest: {
-        name: 'FihSpot — Points of Interest',
-        short_name: 'FihSpot',
-        description: 'Explore and share points of interest on a map.',
-        theme_color: '#4f46e5',
-        background_color: '#f8fafc',
-        display: 'standalone',
-        start_url: '/',
-        lang: 'en',
-        icons: [
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\/pois\/[^/?]+$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'fihspot-poi-detail',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            urlPattern: /\/api\/pois(\?.*)?$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'fihspot-poi-list',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 50, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            urlPattern: /\/uploads\/[^/]+$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'fihspot-photos',
-              expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
-      },
-    }),
-  ],
+  plugins: [react()],
   server: {
     port: 5173,
     proxy: {

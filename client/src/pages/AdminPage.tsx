@@ -535,7 +535,7 @@ export function AdminPage() {
 
   return (
     <div className="page-shell">
-      <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3">
+      <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-700/60"

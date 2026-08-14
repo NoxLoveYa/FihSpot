@@ -20,6 +20,7 @@ const API_URL = '/api';
 
 const TOKEN_KEY = 'fihspot_token';
 const USER_KEY = 'fihspot_user';
+const POIS_KEY = 'fihspot_pois';
 
 // Longest we wait for any API call. Prevents the app from hanging forever on a
 // request that never settles (e.g. a request stalled in the service worker on
@@ -54,6 +55,28 @@ export function setCachedUser(user: User) {
 
 export function clearCachedUser() {
   localStorage.removeItem(USER_KEY);
+}
+
+/**
+ * Last-fetched full POI list (world bounds), stored so the map can render the
+ * points instantly on the next launch while the list revalidates in the
+ * background. Best-effort: a failure must never break loading.
+ */
+export function getCachedPois(): PoISummary[] | null {
+  try {
+    const raw = localStorage.getItem(POIS_KEY);
+    return raw ? (JSON.parse(raw) as PoISummary[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedPois(pois: PoISummary[]) {
+  try {
+    localStorage.setItem(POIS_KEY, JSON.stringify(pois));
+  } catch {
+    // ignore quota/security errors
+  }
 }
 
 export class ApiError extends Error {

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBookmark, faBullseye, faFish } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
 import type { Bounds, PoISummary, Search } from '../api/types';
-import { api } from '../api/client';
+import { api, getCachedPois, setCachedPois } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSearchSession } from '../context/SearchSessionContext';
@@ -42,6 +42,7 @@ export function MapPage() {
   const [locating, setLocating] = useState(false);
   const [mapType, setMapType] = useState<MapType>('roadmap');
   const autoLocatedRef = useRef(false);
+  const initialLoadRef = useRef(true);
   const pendingCenterRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [shouldAutoLocate] = useState(() => {
     const prev = getPreviousPath();
@@ -115,9 +116,25 @@ export function MapPage() {
 
   const loadBounds = useCallback(
     async (bounds: Bounds) => {
+      // Only the very first mount load can render from the cached POI list;
+      // refresh()/reload() explicitly want fresh data.
+      const isInitial = initialLoadRef.current;
+      initialLoadRef.current = false;
+      // The full-world list is the one cached: it's what the map renders on a
+      // fresh launch, so relaunches show the points instantly and the fresh
+      // list replaces them in the background.
+      const isWorld = bounds.swLat <= -90 && bounds.swLng <= -180 && bounds.neLat >= 90 && bounds.neLng >= 180;
       try {
+        if (isInitial && isWorld) {
+          const cached = getCachedPois();
+          if (cached) {
+            setPois(cached);
+            setInitialLoading(false);
+          }
+        }
         const { pois } = await api.listPois(bounds);
         setPois(pois);
+        if (isWorld) setCachedPois(pois);
       } catch (e) {
         toast(t('map.loadError'), 'error');
       } finally {

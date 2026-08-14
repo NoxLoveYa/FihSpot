@@ -1,10 +1,27 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
 import './i18n';
 import '@fortawesome/fontawesome-svg-core/styles.css';
+
+// iOS Safari kills the service worker when Safari closes and wakes it on the
+// next navigation, which delays every launch (and can break the standalone
+// home-screen app). The app is served with long-lived HTTP caching instead, so
+// no service worker is registered. Unregister any previous registration left
+// on devices that installed the old PWA build.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => {
+        registrations.forEach((registration) => {
+          void registration.unregister();
+        });
+      })
+      .catch(() => {});
+  });
+}
 
 // iOS Safari ignores `user-scalable=no` (accessibility), so block the double-tap
 // page zoom that fights the map's own tap gestures.
@@ -20,20 +37,6 @@ document.addEventListener(
   },
   { passive: false },
 );
-
-registerSW({ immediate: true });
-
-// When a newer service worker takes control (skipWaiting/clientsClaim), reload
-// so the page runs against the current build's HTML+assets. Without this, a
-// cold start on mobile can briefly run an old index.html that references
-// assets the updated worker already removed from its cache — leaving the app
-// stuck on the loading screen.
-let refreshing = false;
-navigator.serviceWorker?.addEventListener('controllerchange', () => {
-  if (refreshing) return;
-  refreshing = true;
-  window.location.reload();
-});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

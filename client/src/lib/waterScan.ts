@@ -1,7 +1,7 @@
-import { staticMapForScan } from './googleMaps';
+import { scanTileUrl } from './googleMaps';
 import type { LatLng } from './googleMaps';
 import type { ChunkJob } from './waterWorker';
-import { cacheImage, getCachedImage } from './scanCache';
+import { getToken } from '../api/client';
 import {
   analyzeWater,
   DARK_WATER,
@@ -29,7 +29,7 @@ export interface ScanResult {
   /** Preview image dimensions (1280×1280 with scale=2). */
   width: number;
   height: number;
-  /** Number of tiles that came from the persistent cache (no network). */
+  /** Number of tiles served by the server's cache (no Google request). */
   cachedCount: number;
 }
 
@@ -46,8 +46,8 @@ const MAX_CANDIDATES = 60;
 // Per-radius tile budget. A small radius is already precise at a moderate zoom
 // and stays light; large radii cover far more ground and get a big budget so
 // they are scanned at the finest zoom that fits. The first scan of a zone is
-// heavy, but tiles are cached, so every later scan of the same zone is served
-// from cache.
+// heavy, but the server caches the tiles, so every later scan of the same zone
+// is served from the server cache without another Google request.
 const RADIUS_CHUNK_BUDGETS: Record<number, number> = {
   5: 64,
   30: 144,
@@ -64,17 +64,11 @@ const RADIUS_POND_SIZES_M: Record<number, Record<ScanSensitivity, number>> = {
   50: { sensitive: 70, default: 180, strict: 600 },
 };
 
-// Synthetic cache keys. Tiles are keyed by radius so the images used for one
-// radius are never reused by another (even if two radii share a zoom). These
-// URLs are only cache keys — the network always uses the real static-map URL.
-const CACHE_PREFIX = 'https://fihspot-scan.local';
-
 function metersPerPx(lat: number, zoom: number): number {
   return (EARTH_CIRC_M * Math.cos((lat * Math.PI) / 180)) / (256 * 2 ** zoom);
 }
 
 interface TilePlan {
-  key: string;
   center: LatLng;
   zoom: number;
 }
@@ -83,8 +77,8 @@ interface TilePlan {
  * Tiles the region on a FIXED global grid (Web-Mercator world units). At zoom
  * Z a 640px static map covers exactly 640 world units, so cells spaced by
  * `CHUNK_SIZE·(1−OVERLAP)` units tile the world deterministically: the same
- * geographic zone always maps to the same tile key and the same static-map
- * URL, which is what makes the tile cache reusable across scans.
+ * geographic zone always maps to the same tile center, hence the same server
+ * cache entry, which is what makes the tile cache reusable across scans.
  */
 function planTiles(center: LatLng, radiusKm: number, chunkZoom: number): TilePlan[] {
   const cosLat = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
@@ -112,7 +106,7 @@ function planTiles(center: LatLng, radiusKm: number, chunkZoom: number): TilePla
       const dLatM = Math.abs(c.lat - center.lat) * 111320;
       const dLngM = Math.abs(c.lng - center.lng) * 111320 * cosLat;
       if (Math.hypot(dLatM, dLngM) > radiusM + halfDiagM) continue;
-      tiles.push({ key: `${chunkZoom}:${gx}:${gy}`, center: c, zoom: chunkZoom });
+      tiles.push({ center: c, zoom: chunkZoom });
     }
   }
   return tiles;
@@ -169,20 +163,13 @@ function fitPreview(b: { swLat: number; swLng: number; neLat: number; neLng: num
   return { center: { lat, lng }, zoom };
 }
 
-async function fetchPreview(preview: { center: LatLng; zoom: number }, radiusKm: number) {
-  const url = staticMapForScan(preview.center, preview.zoom, CHUNK_SIZE);
-  if (!url) throw new Error('Map service unavailable');
-  const cacheKey = `${CACHE_PREFIX}/preview/${radiusKm}/${preview.center.lat.toFixed(5)}/${preview.center.lng.toFixed(5)}/${preview.zoom}`;
-  const hit = await getCachedImage(cacheKey);
-  let blob: Blob;
-  if (hit) {
-    blob = await hit.response.blob();
-  } else {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-    await cacheImage(cacheKey, res.clone());
-    blob = await res.blob();
-  }
+async function fetchPreview(preview: { center: LatLng; zoom: number }) {
+  const token = getToken();
+  const res = await fetch(scanTileUrl(preview.center.lat, preview.center.lng, preview.zoom, CHUNK_SIZE), {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+  const blob = await res.blob();
   return { previewUrl: URL.createObjectURL(blob), width: CHUNK_SIZE * SCALE, height: CHUNK_SIZE * SCALE };
 }
 
@@ -253,19 +240,12 @@ async function runChunkJobs(
 
 /** Fallback when Web Workers / OffscreenCanvas are unavailable: sequential on the main thread. */
 async function analyzeChunkOnMain(job: ChunkJob): Promise<{ candidates: DetectedWater[]; cached: boolean }> {
-  const hit = await getCachedImage(job.cacheKey);
-  let response: Response;
-  let cached = false;
-  if (hit) {
-    response = hit.response;
-    cached = true;
-  } else {
-    const res = await fetch(job.url);
-    if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-    await cacheImage(job.cacheKey, res.clone());
-    response = res;
-  }
-  const blob = await response.blob();
+  const res = await fetch(job.url, {
+    headers: job.token ? { Authorization: `Bearer ${job.token}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`Map request failed (${res.status})`);
+  const cached = res.headers.get('X-Cache') === 'HIT';
+  const blob = await res.blob();
   const objectUrl = URL.createObjectURL(blob);
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -333,14 +313,20 @@ export async function scanForWater(
 
   const bounds = regionBounds(area, radiusKm);
   const preview = fitPreview(bounds);
-  const previewPromise = fetchPreview(preview, radiusKm);
+  const previewPromise = fetchPreview(preview);
 
   const jobs: ChunkJob[] = tiles.map((tile, id) => {
-    const url = staticMapForScan(tile.center, tile.zoom, CHUNK_SIZE);
-    if (!url) throw new Error('Map service unavailable');
-    // The cache key is scoped to the radius so tiles never cross radii.
-    const cacheKey = `${CACHE_PREFIX}/tile/${radiusKm}/${tile.key}`;
-    return { id, url, cacheKey, center: tile.center, zoom: tile.zoom, size: CHUNK_SIZE, minArea, minSide };
+    const url = scanTileUrl(tile.center.lat, tile.center.lng, tile.zoom, CHUNK_SIZE);
+    return {
+      id,
+      url,
+      token: getToken() ?? '',
+      center: tile.center,
+      zoom: tile.zoom,
+      size: CHUNK_SIZE,
+      minArea,
+      minSide,
+    };
   });
 
   let perChunk: DetectedWater[][];

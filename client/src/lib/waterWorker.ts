@@ -1,8 +1,8 @@
-// Web Worker: resolves one static-map tile from the persistent cache (or the
-// network), decodes it and runs the water detection, so several tiles are
-// analyzed in parallel off the main thread and repeat scans hit the cache.
+// Web Worker: resolves one scan tile from our server (which proxies the Google
+// Maps Static API and caches tiles server-side), decodes it and runs the water
+// detection, so several tiles are analyzed in parallel off the main thread and
+// repeat scans are served by the server's tile cache.
 
-import { cacheImage, getCachedImage } from './scanCache';
 import {
   analyzeWater,
   DARK_WATER,
@@ -14,7 +14,7 @@ import type { DetectedWater, LatLng } from './waterAnalysis';
 export interface ChunkJob {
   id: number;
   url: string;
-  cacheKey: string;
+  token: string;
   center: LatLng;
   zoom: number;
   size: number;
@@ -25,7 +25,7 @@ export interface ChunkJob {
 export interface ChunkResult {
   id: number;
   candidates: DetectedWater[];
-  /** true when the tile image came from the persistent cache. */
+  /** true when the tile image came from the server's cache (X-Cache: HIT). */
   cached?: boolean;
   error?: string;
 }
@@ -35,19 +35,18 @@ const workerScope = self as unknown as {
   onmessage: ((e: MessageEvent<ChunkJob>) => void) | null;
 };
 
-async function resolveImage(url: string, cacheKey: string): Promise<{ response: Response; cached: boolean }> {
-  const hit = await getCachedImage(cacheKey);
-  if (hit) return { response: hit.response, cached: true };
-  const res = await fetch(url);
+async function resolveImage(url: string, token: string): Promise<{ response: Response; cached: boolean }> {
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) throw new Error(`Map request failed (${res.status})`);
-  await cacheImage(cacheKey, res.clone());
-  return { response: res, cached: false };
+  return { response: res, cached: res.headers.get('X-Cache') === 'HIT' };
 }
 
 workerScope.onmessage = async (e: MessageEvent<ChunkJob>) => {
   const job = e.data;
   try {
-    const { response, cached } = await resolveImage(job.url, job.cacheKey);
+    const { response, cached } = await resolveImage(job.url, job.token);
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob);
 

@@ -11,7 +11,9 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleMapsServerKey: process.env.GOOGLE_MAPS_SERVER_KEY || '',
   uploadsDir: path.resolve(__dirname, '../uploads'),
+  scanCacheDir: path.resolve(__dirname, '../cache/scan-tiles'),
   demoEnabled: process.env.NODE_ENV !== 'production',
   adminEmails: (process.env.ADMIN_EMAILS || '')
     .split(',')
