@@ -21,6 +21,7 @@ model User {
   avatarUrl     String?
   role          Role       @default(USER)
   searchEnabled Boolean    @default(false)
+  shareLocation Boolean    @default(false)
   createdAt     DateTime   @default(now())
   pois          PoI[]
   comments      Comment[]

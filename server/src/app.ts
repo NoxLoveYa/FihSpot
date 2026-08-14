@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import poiRoutes from './routes/pois';
 import searchRoutes from './routes/searches';
 import scanRoutes from './routes/scan';
+import locationRoutes from './routes/locations';
 import userRoutes from './routes/users';
 import adminRoutes from './routes/admin';
 import { notFound, errorHandler } from './middleware/errorHandler';
@@ -23,6 +24,7 @@ export function createApp() {
   app.use('/api/pois', poiRoutes);
   app.use('/api/searches', searchRoutes);
   app.use('/api/scan', scanRoutes);
+  app.use('/api/locations', locationRoutes);
   app.use('/api', userRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/uploads', express.static(config.uploadsDir));

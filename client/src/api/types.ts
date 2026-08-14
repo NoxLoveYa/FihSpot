@@ -7,7 +7,17 @@ export interface User {
   avatarUrl: string | null;
   role: Role;
   searchEnabled?: boolean;
+  shareLocation?: boolean;
   createdAt: string;
+}
+
+export interface LocationShare {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  lat: number;
+  lng: number;
+  updatedAt: string;
 }
 
 export interface PoISummary {

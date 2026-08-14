@@ -28,7 +28,24 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('pois');
   const [uploading, setUploading] = useState(false);
+  const [sharing, setSharing] = useState(user?.shareLocation === true);
+  const [sharingBusy, setSharingBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function toggleSharing() {
+    const target = !sharing;
+    setSharingBusy(true);
+    try {
+      const { user: updated } = await api.setShareLocation(target);
+      setSharing(target);
+      updateUser(updated);
+      toast(t(target ? 'profile.shareEnabled' : 'profile.shareDisabled'), 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : t('profile.shareLocationError'), 'error');
+    } finally {
+      setSharingBusy(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -139,6 +156,28 @@ export function ProfilePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="glass mb-4 flex items-center justify-between gap-3 rounded-2xl p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('profile.shareLocation')}</p>
+            <p className="mt-0.5 text-xs text-slate-400">{t('profile.shareLocationHint')}</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={sharing}
+            disabled={sharingBusy}
+            onClick={toggleSharing}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+              sharing ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-600'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                sharing ? 'left-[1.4rem]' : 'left-0.5'
+              }`}
+            />
+          </button>
         </div>
 
         <div className="glass mb-4 flex gap-1 rounded-2xl p-1">

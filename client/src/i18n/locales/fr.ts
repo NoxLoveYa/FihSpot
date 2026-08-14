@@ -98,6 +98,11 @@ export const fr = {
   'profile.on': 'Sur',
   'profile.avatarUpdated': 'Photo de profil mise à jour',
   'profile.uploadError': 'Erreur d\'upload',
+  'profile.shareLocation': 'Partager ma position',
+  'profile.shareLocationHint': 'Visible par tous les utilisateurs sur la carte, en temps réel',
+  'profile.shareEnabled': 'Partage de position activé',
+  'profile.shareDisabled': 'Partage de position désactivé',
+  'profile.shareLocationError': 'Impossible de mettre à jour le partage de position',
 
   'offline.banner': 'Hors ligne — affichage des données en cache',
 

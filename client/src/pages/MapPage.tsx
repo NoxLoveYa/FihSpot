@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFish } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
-import type { Bounds, PoISummary } from '../api/types';
+import type { Bounds, LocationShare, PoISummary } from '../api/types';
 import { api, getCachedPois, setCachedPois } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -27,7 +27,7 @@ import { getPreviousPath } from '../navigation';
 
 export function MapPage() {
   const { t } = useTranslation();
-  const { loading, canSearch } = useAuth();
+  const { user, loading, canSearch } = useAuth();
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -71,6 +71,7 @@ export function MapPage() {
   } = useSearchSession();
 
   const [searchLoading, setSearchLoading] = useState(false);
+  const [sharedLocations, setSharedLocations] = useState<LocationShare[]>([]);
 
   // Pond scan state (transient)
   const [scanning, setScanning] = useState(false);
@@ -93,6 +94,8 @@ export function MapPage() {
   // re-centering the map. Restarts when the accuracy preference changes.
   const watchIdRef = useRef<number | null>(null);
   const lastFixRef = useRef<{ t: number; lat: number; lng: number } | null>(null);
+  const shareLocationRef = useRef(false);
+  shareLocationRef.current = user?.shareLocation === true;
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -108,6 +111,11 @@ export function MapPage() {
         if (stale || moved) {
           lastFixRef.current = { t: now, lat: position.lat, lng: position.lng };
           setUserPosition(position);
+          // When location sharing is on, report the tracked position to the
+          // server (fire-and-forget) so others see it on their map.
+          if (shareLocationRef.current) {
+            api.updateLocation(position.lat, position.lng).catch(() => {});
+          }
         }
       },
       () => {
@@ -122,6 +130,27 @@ export function MapPage() {
       watchIdRef.current = null;
     };
   }, [highAccuracy]);
+
+  // Poll the shared positions of other users (near real-time) while the map
+  // is mounted. Everyone on the map sees every sharer, including themselves.
+  useEffect(() => {
+    let disposed = false;
+    const poll = async () => {
+      if (disposed) return;
+      try {
+        const { locations } = await api.listLocations();
+        if (!disposed) setSharedLocations(locations);
+      } catch {
+        // transient errors are fine — the next tick retries
+      }
+    };
+    void poll();
+    const id = window.setInterval(() => void poll(), 5000);
+    return () => {
+      disposed = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -423,6 +452,7 @@ export function MapPage() {
         searchPosition={searchPosition}
         searchArea={searchArea}
         candidates={candidates}
+        sharedLocations={sharedLocations}
         onMapReady={handleMapReady}
         onBoundsChange={handleBoundsChange}
         onSelect={(id) => {

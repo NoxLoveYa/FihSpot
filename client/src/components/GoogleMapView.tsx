@@ -4,7 +4,7 @@ import { faFish } from '@fortawesome/free-solid-svg-icons';
 import { loadGoogleMaps, MAP_ID, type LatLng } from '../lib/googleMaps';
 import { useTheme } from '../context/ThemeContext';
 import type { MapType } from './MapTypeToggle';
-import type { Bounds, PoISummary } from '../api/types';
+import type { Bounds, LocationShare, PoISummary } from '../api/types';
 
 const PIN_COLOR = '#2563eb';
 
@@ -23,6 +23,25 @@ function makeContent(innerHtml: string, interactive = false): HTMLElement {
   return el;
 }
 
+/** Avatar marker content for a user sharing their live location. */
+function makeShareContent(name: string, avatarUrl: string | null): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'gm-share-marker';
+  if (avatarUrl) {
+    const img = document.createElement('img');
+    img.src = avatarUrl;
+    img.alt = '';
+    img.className = 'gm-share-avatar';
+    el.appendChild(img);
+  } else {
+    const span = document.createElement('span');
+    span.className = 'gm-share-avatar gm-share-avatar-fallback';
+    span.textContent = name.charAt(0).toUpperCase();
+    el.appendChild(span);
+  }
+  return el;
+}
+
 export type PickKind = 'scan' | 'poi';
 
 interface GoogleMapViewProps {
@@ -34,6 +53,7 @@ interface GoogleMapViewProps {
   searchPosition: LatLng | null;
   searchArea: { lat: number; lng: number } | null;
   candidates: LatLng[];
+  sharedLocations: LocationShare[];
   onMapReady: (map: google.maps.Map) => void;
   onBoundsChange: (bounds: Bounds) => void;
   onSelect: (id: string) => void;
@@ -49,6 +69,7 @@ export function GoogleMapView({
   searchPosition,
   searchArea,
   candidates,
+  sharedLocations,
   onMapReady,
   onBoundsChange,
   onSelect,
@@ -69,6 +90,8 @@ export function GoogleMapView({
   const userMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const userPositionRef = useRef<LatLng | null>(null);
   userPositionRef.current = userPosition;
+  // One marker per user sharing their location, moved in place as it updates.
+  const sharedMarkersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
 
   useEffect(() => {
     mapTypeRef.current = mapType;
@@ -429,12 +452,65 @@ export function GoogleMapView({
     }
   }, [map, userPosition]);
 
+  // Shared-location markers (avatar per sharer). Created once per user and
+  // moved in place on each poll; removed when a user stops sharing.
+  useEffect(() => {
+    if (!map) return;
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    if (!AdvancedMarkerElement) return;
+    const markers = sharedMarkersRef.current;
+    // If the map instance changed (e.g. theme switch), previous markers are gone.
+    let stale = false;
+    for (const m of markers.values()) {
+      if (m.map !== map) {
+        stale = true;
+        break;
+      }
+    }
+    if (stale) {
+      markers.forEach((m) => {
+        m.map = null;
+      });
+      markers.clear();
+    }
+    const seen = new Set<string>();
+    sharedLocations.forEach((loc) => {
+      seen.add(loc.userId);
+      const existing = markers.get(loc.userId);
+      if (existing) {
+        existing.position = { lat: loc.lat, lng: loc.lng };
+      } else {
+        markers.set(
+          loc.userId,
+          new AdvancedMarkerElement({
+            map,
+            position: { lat: loc.lat, lng: loc.lng },
+            content: makeShareContent(loc.name, loc.avatarUrl),
+            zIndex: 950,
+            anchorLeft: '-50%',
+            anchorTop: '-50%',
+          }),
+        );
+      }
+    });
+    for (const [id, m] of markers) {
+      if (!seen.has(id)) {
+        m.map = null;
+        markers.delete(id);
+      }
+    }
+  }, [map, sharedLocations]);
+
   useEffect(
     () => () => {
       if (userMarkerRef.current) {
         userMarkerRef.current.map = null;
         userMarkerRef.current = null;
       }
+      sharedMarkersRef.current.forEach((m) => {
+        m.map = null;
+      });
+      sharedMarkersRef.current.clear();
     },
     [],
   );

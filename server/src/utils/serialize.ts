@@ -5,6 +5,7 @@ export function publicUser(user: {
   avatarUrl: string | null;
   role: string;
   searchEnabled: boolean;
+  shareLocation: boolean;
   createdAt: Date;
 }) {
   return {
@@ -14,6 +15,7 @@ export function publicUser(user: {
     avatarUrl: user.avatarUrl,
     role: user.role,
     searchEnabled: user.searchEnabled,
+    shareLocation: user.shareLocation,
     createdAt: user.createdAt,
   };
 }

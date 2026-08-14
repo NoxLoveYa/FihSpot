@@ -98,6 +98,11 @@ export const en = {
   'profile.on': 'On',
   'profile.avatarUpdated': 'Profile photo updated',
   'profile.uploadError': 'Upload failed',
+  'profile.shareLocation': 'Share my location',
+  'profile.shareLocationHint': 'Visible by all users on the map, in real time',
+  'profile.shareEnabled': 'Location sharing enabled',
+  'profile.shareDisabled': 'Location sharing disabled',
+  'profile.shareLocationError': "Couldn't update location sharing",
 
   'offline.banner': 'Offline — showing cached data',
 

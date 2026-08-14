@@ -6,6 +6,7 @@ import type {
   AdminUser,
   Bounds,
   Comment,
+  LocationShare,
   Photo,
   PoI,
   PoISummary,
@@ -188,6 +189,13 @@ export const api = {
   // Seen tracking
   markSeen: (poiId: string) => request<{ seen: boolean }>(`/pois/${poiId}/seen`, { method: 'POST' }),
   unmarkSeen: (poiId: string) => request<{ seen: boolean }>(`/pois/${poiId}/seen`, { method: 'DELETE' }),
+
+  // Location sharing
+  setShareLocation: (enabled: boolean) =>
+    request<{ user: User }>('/locations/share', { method: 'POST', body: JSON.stringify({ enabled }) }),
+  updateLocation: (lat: number, lng: number) =>
+    request<{ ok: boolean }>('/locations', { method: 'POST', body: JSON.stringify({ lat, lng }) }),
+  listLocations: () => request<{ locations: LocationShare[] }>('/locations'),
 
   // Comments
   addComment: (poiId: string, content: string) =>
