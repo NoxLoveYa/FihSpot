@@ -64,6 +64,11 @@ export function GoogleMapView({
   const pendingTapRef = useRef<number | null>(null);
   const lastTapTimeRef = useRef(0);
   const lastTapXYRef = useRef({ x: 0, y: 0 });
+  // The user-location dot is its own marker so real-time position updates move
+  // it in place instead of re-creating every POI marker.
+  const userMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const userPositionRef = useRef<LatLng | null>(null);
+  userPositionRef.current = userPosition;
 
   useEffect(() => {
     mapTypeRef.current = mapType;
@@ -349,18 +354,6 @@ export function GoogleMapView({
       );
     }
 
-    if (userPosition) {
-      markers.push(
-        new AdvancedMarkerElement({
-          map,
-          position: userPosition,
-          content: makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
-          zIndex: 1000,
-          ...centered,
-        }),
-      );
-    }
-
     if (searchPosition) {
       markers.push(
         new AdvancedMarkerElement({
@@ -402,7 +395,49 @@ export function GoogleMapView({
         m.map = null;
       });
     };
-  }, [map, pois, selectedId, draftPosition, userPosition, searchPosition, searchArea, candidates]);
+  }, [map, pois, selectedId, draftPosition, searchPosition, searchArea, candidates]);
+
+  // Dedicated user-location dot: created once per map, then only moved when the
+  // tracked position changes (avoids rebuilding every marker on each fix).
+  useEffect(() => {
+    if (!map) return;
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    if (!AdvancedMarkerElement) return;
+    const position = userPositionRef.current;
+    if (!position) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.map = null;
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+    if (userMarkerRef.current && userMarkerRef.current.map !== map) {
+      userMarkerRef.current.map = null;
+      userMarkerRef.current = null;
+    }
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new AdvancedMarkerElement({
+        map,
+        position,
+        content: makeContent('<div class="marker-user-dot"><div class="marker-user-pulse"></div></div>'),
+        zIndex: 1000,
+        anchorLeft: '-50%',
+        anchorTop: '-50%',
+      });
+    } else {
+      userMarkerRef.current.position = position;
+    }
+  }, [map, userPosition]);
+
+  useEffect(
+    () => () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.map = null;
+        userMarkerRef.current = null;
+      }
+    },
+    [],
+  );
 
   return (
     <div className="relative h-full w-full">

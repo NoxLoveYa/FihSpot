@@ -1,18 +1,18 @@
 {
-	# Only HTTP/1.1 to clients. Mobile carriers' NAT drops idle connections, and
-	# iOS standalone apps over cellular fail with "network connection lost" when
-	# they reuse a stale HTTP/2 connection from another process. HTTP/3 (QUIC)
-	# is also disabled for the same reason: a fresh TCP connection per launch is
-	# the reliable path on mobile networks.
+	# HTTP/3 (QUIC over UDP) stays disabled: mobile carriers' NAT drops the
+	# stale UDP session after the browser closes and the next launch hangs
+	# trying to resume it instead of falling back to TCP.
 	servers :443 {
-		protocols h1
+		protocols h1 h2
 	}
 }
 
 fihspot.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	reverse_proxy client:80
 }
 
 www.fihspot.com {
+	header Strict-Transport-Security "max-age=31536000"
 	redir https://fihspot.com{uri} permanent
 }

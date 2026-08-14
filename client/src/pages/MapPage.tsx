@@ -40,6 +40,10 @@ export function MapPage() {
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(() => {
+    const saved = localStorage.getItem('fihspot_high_accuracy');
+    return saved === null ? true : saved !== 'false';
+  });
   const [mapType, setMapType] = useState<MapType>('roadmap');
   const autoLocatedRef = useRef(false);
   const initialLoadRef = useRef(true);
@@ -80,6 +84,44 @@ export function MapPage() {
   useEffect(() => {
     localStorage.setItem('fihspot_scan_sensitivity', sensitivity);
   }, [sensitivity]);
+
+  useEffect(() => {
+    localStorage.setItem('fihspot_high_accuracy', String(highAccuracy));
+  }, [highAccuracy]);
+
+  // Real-time location tracking: the user dot follows the device without
+  // re-centering the map. Restarts when the accuracy preference changes.
+  const watchIdRef = useRef<number | null>(null);
+  const lastFixRef = useRef<{ t: number; lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const now = Date.now();
+        const last = lastFixRef.current;
+        // Update at least every 15 s to stay fresh, or every ~3 s when the
+        // device has moved at least ~15 m — avoids pointless re-renders.
+        const stale = !last || now - last.t >= 15000;
+        const moved = !last || (now - last.t >= 3000 && haversineKm(last, position) >= 0.015);
+        if (stale || moved) {
+          lastFixRef.current = { t: now, lat: position.lat, lng: position.lng };
+          setUserPosition(position);
+        }
+      },
+      () => {
+        // Keep the last known position; errors are surfaced by the launch /
+        // button one-shot requests.
+      },
+      { enableHighAccuracy: highAccuracy, maximumAge: 0, timeout: 15000 },
+    );
+    watchIdRef.current = id;
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    };
+  }, [highAccuracy]);
 
   useEffect(() => {
     const poiId = searchParams.get('poi');
@@ -344,11 +386,11 @@ export function MapPage() {
             setLocating(false);
             toast(t('locate.error'), 'error');
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+          { enableHighAccuracy: highAccuracy, timeout: 10000, maximumAge: 0 },
         );
       }
     },
-    [pendingFocus, panToPoi, shouldAutoLocate, toast, t],
+    [pendingFocus, panToPoi, shouldAutoLocate, highAccuracy, toast, t],
   );
 
   const handleToggleSeen = useCallback((poiId: string, seen: boolean) => {
@@ -460,8 +502,11 @@ export function MapPage() {
         <UserLocationButton
           map={mapRef.current}
           onLocate={handleLocate}
+          userPosition={userPosition}
           locating={locating}
           onLocatingChange={setLocating}
+          highAccuracy={highAccuracy}
+          onToggleAccuracy={() => setHighAccuracy((v) => !v)}
         />
       )}
 

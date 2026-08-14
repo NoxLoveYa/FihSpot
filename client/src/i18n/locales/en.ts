@@ -106,6 +106,9 @@ export const en = {
   'locate.error': 'Location unavailable',
   'locate.me': 'Locate me',
   'locate.locating': 'Locating you…',
+  'locate.accuracy': 'Location accuracy',
+  'locate.accuracyHigh': 'High accuracy (GPS)',
+  'locate.accuracyBalanced': 'Balanced (network)',
 
   'search.toggle': 'Search spots',
   'search.tapMap': 'Tap the map to set the search center',

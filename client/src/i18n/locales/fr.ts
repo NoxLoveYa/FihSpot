@@ -106,6 +106,9 @@ export const fr = {
   'locate.error': 'Localisation indisponible',
   'locate.me': 'Me localiser',
   'locate.locating': 'Localisation en cours…',
+  'locate.accuracy': 'Précision de la localisation',
+  'locate.accuracyHigh': 'Haute précision (GPS)',
+  'locate.accuracyBalanced': 'Équilibrée (réseau)',
 
   'search.toggle': 'Chercher des spots',
   'search.tapMap': 'Touchez la carte pour placer le centre de recherche',
