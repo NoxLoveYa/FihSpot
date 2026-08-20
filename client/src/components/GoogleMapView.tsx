@@ -82,11 +82,9 @@ export function GoogleMapView({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const viewRef = useRef<{ center: LatLng; zoom: number } | null>(null);
   const mapTypeRef = useRef(mapType);
-  // Mobile tap debounce: distinguishes a single tap (scan marker) from a
-  // double-tap (POI placement) by deferring the action briefly.
-  const pendingTapRef = useRef<number | null>(null);
-  const lastTapTimeRef = useRef(0);
-  const lastTapXYRef = useRef({ x: 0, y: 0 });
+  // Set when a long-press has just triggered a spot search, so the synthetic
+  // `click` released after it doesn't also place a POI.
+  const suppressClickRef = useRef(false);
   // The user-location dot is its own marker so real-time position updates move
   // it in place instead of re-creating every POI marker.
   const userMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
@@ -130,6 +128,77 @@ export function GoogleMapView({
     };
     let preventContextMenu: ((ev: Event) => void) | undefined;
 
+    // Long-press on touch = spot search. Holding a finger still long enough
+    // drops the scan marker where the press started; the synthetic `click`
+    // released afterwards is swallowed via `suppressClickRef`.
+    const LONG_PRESS_MS = 500;
+    const LONG_PRESS_SLOP = 12;
+    let longPressTimer: number | null = null;
+    let longPressOrigin: { x: number; y: number } | null = null;
+
+    const cancelLongPress = () => {
+      if (longPressTimer !== null) {
+        window.clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      longPressOrigin = null;
+    };
+
+    const containerPixelToLatLng = (clientX: number, clientY: number): LatLng | null => {
+      if (!instance || !containerRef.current) return null;
+      const projection = instance.getProjection();
+      const bounds = instance.getBounds();
+      if (!projection || !bounds) return null;
+      const sw = projection.fromLatLngToPoint(bounds.getSouthWest());
+      const ne = projection.fromLatLngToPoint(bounds.getNorthEast());
+      if (!sw || !ne) return null;
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      let worldWidth = ne.x - sw.x;
+      if (worldWidth <= 0) worldWidth += 256; // viewport crosses the antimeridian
+      const worldHeight = sw.y - ne.y;
+      const worldX = sw.x + ((clientX - rect.left) / rect.width) * worldWidth;
+      const worldY = ne.y + ((clientY - rect.top) / rect.height) * worldHeight;
+      const latlng = projection.fromPointToLatLng(new window.google.maps.Point(worldX, worldY));
+      return latlng ? { lat: latlng.lat(), lng: latlng.lng() } : null;
+    };
+
+    const onTouchStart = (ev: TouchEvent) => {
+      suppressClickRef.current = false;
+      if (ev.touches.length !== 1) {
+        cancelLongPress();
+        return;
+      }
+      const touch = ev.touches[0];
+      if (!touch || !instance) return;
+      cancelLongPress();
+      longPressOrigin = { x: touch.clientX, y: touch.clientY };
+      const target = containerPixelToLatLng(touch.clientX, touch.clientY);
+      if (!target) return;
+      longPressTimer = window.setTimeout(() => {
+        longPressTimer = null;
+        longPressOrigin = null;
+        suppressClickRef.current = true;
+        onPickRef.current(target, 'scan');
+      }, LONG_PRESS_MS);
+    };
+
+    const onTouchMove = (ev: TouchEvent) => {
+      if (longPressTimer === null || !longPressOrigin) return;
+      const touch = ev.touches[0];
+      if (!touch) return;
+      if (
+        ev.touches.length > 1 ||
+        Math.hypot(touch.clientX - longPressOrigin.x, touch.clientY - longPressOrigin.y) > LONG_PRESS_SLOP
+      ) {
+        cancelLongPress();
+      }
+    };
+
+    const onTouchEnd = (ev: TouchEvent) => {
+      if (ev.touches.length === 0) cancelLongPress();
+    };
+
     // The visual viewport shrinks/grows with the browser chrome (URL bar,
     // keyboard, launch transition) without resizing the window. Re-measure the
     // canvas whenever it changes so the map always fills its container.
@@ -144,9 +213,6 @@ export function GoogleMapView({
         const zoom = viewRef.current?.zoom ?? 13;
         const containerWidth = containerRef.current.clientWidth || window.innerWidth;
         const minZoom = Math.max(1, Math.ceil(Math.log2(containerWidth / 256)));
-        // Coarse pointers (touch) get tap/double-tap gestures; fine pointers
-        // (mouse) get left-click = POI and right-click = scan.
-        const isCoarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
         instance = new google.maps.Map(containerRef.current, {
           center,
           zoom,
@@ -161,8 +227,6 @@ export function GoogleMapView({
           zoomControl: false,
           streetViewControl: false,
           fullscreenControl: false,
-          // On touch, a double-tap means "place a POI" — don't zoom the map.
-          disableDoubleClickZoom: isCoarse,
           mapTypeId:
             mapTypeRef.current === 'satellite'
               ? google.maps.MapTypeId.SATELLITE
@@ -171,51 +235,21 @@ export function GoogleMapView({
           gestureHandling: 'auto',
         });
 
+        // Left-click (mouse) or tap (touch) places a POI. Double-tap zooms.
         instance.addListener('click', (e: google.maps.MapMouseEvent) => {
           if (!e.latLng) return;
-          const latlng = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-          if (!isCoarse) {
-            onPickRef.current(latlng, 'poi');
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
             return;
           }
-          // Mobile: defer a single tap (scan marker) so a second tap within
-          // ~350 ms / ~44 px becomes a double-tap (POI placement).
-          const dom = e.domEvent as MouseEvent | undefined;
-          const now = Date.now();
-          const x = dom?.clientX ?? 0;
-          const y = dom?.clientY ?? 0;
-          if (pendingTapRef.current !== null && now - lastTapTimeRef.current <= 350) {
-            const timer = pendingTapRef.current;
-            pendingTapRef.current = null;
-            window.clearTimeout(timer);
-            const dx = x - lastTapXYRef.current.x;
-            const dy = y - lastTapXYRef.current.y;
-            if (Math.hypot(dx, dy) <= 44) {
-              onPickRef.current(latlng, 'poi');
-              return;
-            }
-          }
-          if (pendingTapRef.current !== null) window.clearTimeout(pendingTapRef.current);
-          lastTapTimeRef.current = now;
-          lastTapXYRef.current = { x, y };
-          pendingTapRef.current = window.setTimeout(() => {
-            pendingTapRef.current = null;
-            onPickRef.current(latlng, 'scan');
-          }, 280);
-        });
-
-        // On touch Google Maps fires `dblclick` (instead of a second `click`)
-        // for the second tap of a double-tap. Cancel any pending single-tap
-        // scan and place a POI instead.
-        instance.addListener('dblclick', (e: google.maps.MapMouseEvent) => {
-          if (!e.latLng) return;
-          if (pendingTapRef.current !== null) {
-            window.clearTimeout(pendingTapRef.current);
-            pendingTapRef.current = null;
-          }
-          lastTapTimeRef.current = 0;
           onPickRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() }, 'poi');
         });
+
+        const containerEl = containerRef.current;
+        containerEl.addEventListener('touchstart', onTouchStart, { passive: true });
+        containerEl.addEventListener('touchmove', onTouchMove, { passive: true });
+        containerEl.addEventListener('touchend', onTouchEnd, { passive: true });
+        containerEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
         instance.addListener('rightclick', (e: google.maps.MapMouseEvent) => {
           if (e.latLng) onPickRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() }, 'scan');
@@ -305,12 +339,15 @@ export function GoogleMapView({
       disposed = true;
       settleTimeouts.forEach((t) => window.clearTimeout(t));
       if (watchdogTimer !== undefined) window.clearTimeout(watchdogTimer);
-      if (pendingTapRef.current !== null) {
-        window.clearTimeout(pendingTapRef.current);
-        pendingTapRef.current = null;
-      }
+      if (longPressTimer !== null) window.clearTimeout(longPressTimer);
       if (preventContextMenu && containerRef.current) {
         containerRef.current.removeEventListener('contextmenu', preventContextMenu);
+      }
+      if (containerRef.current) {
+        containerRef.current.removeEventListener('touchstart', onTouchStart);
+        containerRef.current.removeEventListener('touchmove', onTouchMove);
+        containerRef.current.removeEventListener('touchend', onTouchEnd);
+        containerRef.current.removeEventListener('touchcancel', onTouchEnd);
       }
       resizeObserver?.disconnect();
       visualViewport?.removeEventListener('resize', forceResize);

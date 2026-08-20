@@ -304,9 +304,8 @@ export function MapPage() {
     runScan(searchArea);
   }, [searchArea, sensitivity, runScan]);
 
-  // Desktop: left-click places a POI, right-click a scan marker. Mobile: a
-  // single tap places a scan marker, a double-tap a POI. The map view resolves
-  // the gesture and reports its intent here.
+  // Left-click / tap places a POI, right-click / long-press starts a spot
+  // search. The map view resolves the gesture and reports its intent here.
   const handlePick = useCallback(
     (latlng: LatLng, kind: PickKind) => {
       if (kind === 'scan') {
