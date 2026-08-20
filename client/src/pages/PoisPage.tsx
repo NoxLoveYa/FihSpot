@@ -79,7 +79,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
           }}
           aria-label={t('poi.viewOnMap')}
           title={t('poi.viewOnMap')}
-          className="glass absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
+          className="icon-btn absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full transition-all hover:scale-105 hover:brightness-110 active:scale-95"
         >
           <FontAwesomeIcon icon={faExpand} className="h-4 w-4" />
         </button>

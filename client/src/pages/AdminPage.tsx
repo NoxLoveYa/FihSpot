@@ -173,7 +173,7 @@ function AdminPoiCard({
             }}
             disabled={busy}
             title={poi.demo ? 'Un-demo' : 'Demo'}
-            className="glass grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
+            className="icon-btn grid h-9 w-9 place-items-center rounded-full transition-all hover:scale-105 hover:brightness-110 active:scale-95"
           >
             <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4" />
           </button>
@@ -184,7 +184,7 @@ function AdminPoiCard({
             }}
             disabled={busy}
             title={t('admin.pois.edit')}
-            className="glass grid h-9 w-9 place-items-center rounded-full text-slate-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-slate-200"
+            className="icon-btn grid h-9 w-9 place-items-center rounded-full transition-all hover:scale-105 hover:brightness-110 active:scale-95"
           >
             <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" />
           </button>
@@ -195,7 +195,7 @@ function AdminPoiCard({
             }}
             disabled={busy}
             title={t('admin.pois.delete')}
-            className="grid h-9 w-9 place-items-center rounded-full bg-rose-600/90 text-white shadow-soft transition-all hover:scale-105 hover:bg-rose-600 active:scale-95"
+            className="icon-btn grid h-9 w-9 place-items-center rounded-full text-rose-600 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-rose-400"
           >
             <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
           </button>
@@ -868,80 +868,90 @@ export function AdminPage() {
               {usersLoading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+                    <Skeleton key={i} className="h-28 w-full rounded-2xl" />
                   ))}
                 </div>
               ) : users.length === 0 ? (
                 <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.users.noResults')}</p>
               ) : (
                 <>
-                  <div className="glass-strong divide-y divide-slate-200/60 overflow-hidden rounded-2xl dark:divide-slate-700">
-                  {users.map((u) => (
-                    <div key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                      <Avatar url={u.avatarUrl} name={u.name} />
-                      <div className="min-w-0 flex-1">
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                          {u.name}
-                          <RoleBadge role={u.role} />
-                        </p>
-                        <p className="truncate text-xs text-slate-400">{u.email}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
-                        <span>{u._count.pois} {t('profile.points')}</span>
-                        <span>{u._count.comments} {t('profile.comments')}</span>
-                        <span>{u._count.photos} {t('profile.photos')}</span>
-                      </div>
-                      <span className="hidden shrink-0 text-xs text-slate-400 sm:inline">{formatDate(u.createdAt)}</span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button
-                          variant="secondary"
-                          onClick={() =>
-                            setEditingUser({ user: u, name: u.name, email: u.email, password: '' })
-                          }
-                          disabled={busyUser === u.id}
-                          className="min-h-[36px] px-3 py-1.5 text-xs"
-                        >
-                          {t('admin.users.edit')}
-                        </Button>
-                        {u.id !== user?.id && (
+                  <div className="space-y-3">
+                    {users.map((u) => (
+                      <div key={u.id} className="glass-strong rounded-2xl p-4">
+                        <div className="flex items-start gap-3">
+                          <Avatar url={u.avatarUrl} name={u.name} size="h-10 w-10" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{u.name}</span>
+                              <RoleBadge role={u.role} />
+                            </div>
+                            <p className="truncate text-xs text-slate-400">{u.email} · {formatDate(u.createdAt)}</p>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+                              <span className="glass inline-flex items-center gap-1 rounded-full px-2 py-1">
+                                <FontAwesomeIcon icon={faMapPin} className="h-3 w-3 text-brand-500" />
+                                {u._count.pois} {t('profile.points')}
+                              </span>
+                              <span className="glass inline-flex items-center gap-1 rounded-full px-2 py-1">
+                                <FontAwesomeIcon icon={faComment} className="h-3 w-3 text-brand-500" />
+                                {u._count.comments} {t('profile.comments')}
+                              </span>
+                              <span className="glass inline-flex items-center gap-1 rounded-full px-2 py-1">
+                                <FontAwesomeIcon icon={faCamera} className="h-3 w-3 text-brand-500" />
+                                {u._count.photos} {t('profile.photos')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/60 pt-3 dark:border-slate-700">
                           <Button
-                            variant={u.role === 'ADMIN' ? 'secondary' : 'primary'}
-                            onClick={() => toggleUserRole(u)}
+                            variant="secondary"
+                            onClick={() =>
+                              setEditingUser({ user: u, name: u.name, email: u.email, password: '' })
+                            }
                             disabled={busyUser === u.id}
-                            className="min-h-[36px] px-3 py-1.5 text-xs"
+                            className="min-h-[36px] flex-1 px-3 py-1.5 text-xs"
                           >
-                            {u.role === 'ADMIN' ? t('admin.users.demote') : t('admin.users.promote')}
+                            {t('admin.users.edit')}
                           </Button>
-                        )}
-                        {u.role !== 'ADMIN' && (
-                          <Button
-                            variant={u.searchEnabled ? 'secondary' : 'primary'}
-                            onClick={() => toggleUserSearch(u)}
-                            disabled={busyUser === u.id}
-                            title={t('admin.users.searchAccess')}
-                            className="min-h-[36px] px-3 py-1.5 text-xs"
-                          >
-                            {u.searchEnabled ? t('admin.users.searchDisable') : t('admin.users.searchEnable')}
-                          </Button>
-                        )}
-                        {u.id !== user?.id && (
-                          <Button
-                            variant="danger"
-                            onClick={() => setDeletingUser(u)}
-                            disabled={busyUser === u.id}
-                            className="min-h-[36px] px-3 py-1.5 text-xs"
-                          >
-                            {t('admin.users.delete')}
-                          </Button>
-                        )}
+                          {u.id !== user?.id && (
+                            <Button
+                              variant={u.role === 'ADMIN' ? 'secondary' : 'primary'}
+                              onClick={() => toggleUserRole(u)}
+                              disabled={busyUser === u.id}
+                              className="min-h-[36px] flex-1 px-3 py-1.5 text-xs"
+                            >
+                              {u.role === 'ADMIN' ? t('admin.users.demote') : t('admin.users.promote')}
+                            </Button>
+                          )}
+                          {u.role !== 'ADMIN' && (
+                            <Button
+                              variant={u.searchEnabled ? 'secondary' : 'primary'}
+                              onClick={() => toggleUserSearch(u)}
+                              disabled={busyUser === u.id}
+                              title={t('admin.users.searchAccess')}
+                              className="min-h-[36px] flex-1 px-3 py-1.5 text-xs"
+                            >
+                              {u.searchEnabled ? t('admin.users.searchDisable') : t('admin.users.searchEnable')}
+                            </Button>
+                          )}
+                          {u.id !== user?.id && (
+                            <Button
+                              variant="danger"
+                              onClick={() => setDeletingUser(u)}
+                              disabled={busyUser === u.id}
+                              className="min-h-[36px] flex-1 px-3 py-1.5 text-xs"
+                            >
+                              {t('admin.users.delete')}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-3 text-center text-xs text-slate-400">{t('admin.users.total', { count: userTotal })}</p>
-                <Pagination page={userPage} pages={userPages} onChange={setUserPage} />
-              </>
-            )}
+                    ))}
+                  </div>
+                  <p className="mt-3 text-center text-xs text-slate-400">{t('admin.users.total', { count: userTotal })}</p>
+                  <Pagination page={userPage} pages={userPages} onChange={setUserPage} />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1068,7 +1078,7 @@ export function AdminPage() {
                           onClick={() => deleteComment(c)}
                           disabled={busyComment === c.id}
                           title={t('admin.mod.deleteComment')}
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                          className="icon-btn grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400"
                         >
                           {busyComment === c.id ? <Spinner className="h-3.5 w-3.5" /> : <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />}
                         </button>

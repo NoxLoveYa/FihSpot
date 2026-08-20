@@ -273,7 +273,7 @@ export function SearchPanel({
                         }}
                         aria-label={t('scan.add')}
                         title={t('scan.add')}
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-700"
+                        className="icon-btn grid h-9 w-9 shrink-0 place-items-center rounded-full text-brand-700 transition-all hover:scale-105 hover:brightness-110 active:scale-95 dark:text-brand-200"
                       >
                         <FontAwesomeIcon icon={faCirclePlus} className="h-4 w-4" />
                       </button>

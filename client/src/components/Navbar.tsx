@@ -107,7 +107,7 @@ export function Navbar({ mapType, onMapTypeChange, search }: NavbarProps) {
         ) : (
           <button
             onClick={() => navigate('/login')}
-            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-float transition-colors hover:bg-brand-700"
+            className="btn-glossy rounded-xl border-brand-500/40 px-4 py-2 text-sm font-semibold text-brand-700 transition-all hover:brightness-105 dark:border-brand-400/40 dark:text-brand-200"
           >
             {t('nav.login')}
           </button>
