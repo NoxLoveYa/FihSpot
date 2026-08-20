@@ -88,7 +88,7 @@ function PoisCard({ poi, onClick, onViewOnMap }: { poi: PoISummary; onClick: () 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="line-clamp-1 text-base font-bold text-slate-800 dark:text-slate-100">{poi.name}</h3>
         {poi.description ? (
-          <p className="line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{poi.description}</p>
+          <p className="line-clamp-2 rounded-xl rounded-tl-sm bg-slate-100/80 px-3 py-2 text-sm leading-relaxed text-slate-500 dark:bg-slate-700/50 dark:text-slate-400">{poi.description}</p>
         ) : (
           <p className="text-sm italic text-slate-400 dark:text-slate-500">{t('pois.noDescription')}</p>
         )}

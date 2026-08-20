@@ -163,6 +163,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
             className={`glass-strong fixed z-[1400] flex flex-col overflow-hidden rounded-t-3xl md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
               isDesktop ? 'right-0 w-[420px]' : 'inset-x-0 bottom-0 h-[85dvh]'
             }`}
+            data-poi-drawer
           >
             {loading || !poi ? (
               <div className="flex flex-col gap-4 p-5">
@@ -236,7 +237,11 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                     );
                   })()}
 
-                  {poi.description && <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{poi.description}</p>}
+                  {poi.description && (
+                    <p className="rounded-xl rounded-tl-sm bg-slate-100/80 px-3.5 py-2.5 text-sm leading-relaxed text-slate-600 dark:bg-slate-700/50 dark:text-slate-300">
+                      {poi.description}
+                    </p>
+                  )}
 
                   <div className="flex flex-col gap-2">
                     {onViewOnMap && (

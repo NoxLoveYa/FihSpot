@@ -335,60 +335,35 @@ export function MapPage() {
     setUserPosition(position);
   }, []);
 
-  // Centers the map on a POI, keeping it visible next to the open panel
-  // (left of the 420px side panel on desktop, in the strip above the bottom
-  // sheet on mobile). The target center is computed at the final zoom so the
-  // pixel offset survives the zoom animation (no panBy drift).
+  // Centers the map on a POI at the target zoom. The POI lands dead-center on
+  // both axes (desktop and mobile alike) — no pixel-offset math is needed.
   const panToPoi = useCallback(
     (lat: number, lng: number) => {
       const map = mapRef.current;
       if (!map) return;
-      const rect = map.getDiv().getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      const vh = window.innerHeight;
-
-      let tx = w / 2;
-      let ty: number;
-      if (isDesktop) {
-        ty = h / 2;
-      } else {
-        const headerEl = document.querySelector('header');
-        const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : vh * 0.08;
-        const drawerTop = vh * 0.15; // PoiDrawer is a fixed h-[85dvh] bottom sheet
-        // The pin marker (36px, anchored at its center) must stay fully visible
-        // in the strip between the navbar and the bottom sheet: keep the anchor
-        // at the strip center, but never so low that the pin tip hides behind
-        // the sheet edge.
-        const stripCenter = (headerBottom + drawerTop) / 2;
-        const maxAnchor = drawerTop - 24;
-        ty = Math.min(stripCenter, maxAnchor) - rect.top;
-      }
 
       const currentZoom = map.getZoom() ?? 13;
       const targetZoom = Math.max(currentZoom, isDesktop ? 14 : 15);
+      const needsZoom = currentZoom < targetZoom;
+      if (needsZoom) map.setZoom(targetZoom);
 
-      let centerLatLng: { lat: number; lng: number } = { lat, lng };
-      const projection = map.getProjection();
-      const bounds = map.getBounds();
-      if (projection && bounds) {
-        const ne = projection.fromLatLngToPoint(bounds.getNorthEast());
-        const sw = projection.fromLatLngToPoint(bounds.getSouthWest());
-        const point = projection.fromLatLngToPoint({ lat, lng });
-        if (ne && sw && point) {
-          const factor = Math.pow(2, currentZoom - targetZoom);
-          let spanW = (ne.x - sw.x) * factor;
-          const spanH = (sw.y - ne.y) * factor;
-          if (spanW <= 0) spanW += 256 * factor;
-          const cx = point.x + ((w / 2 - tx) / w) * spanW;
-          const cy = point.y + ((h / 2 - ty) / h) * spanH;
-          const center = projection.fromPointToLatLng(new google.maps.Point(cx, cy));
-          if (center) centerLatLng = { lat: center.lat(), lng: center.lng() };
-        }
+      // Wait for the zoom animation to finish before centering so the POI lands
+      // exactly at the viewport center at the final zoom.
+      const doCenter = () => {
+        const m = mapRef.current;
+        if (!m) return;
+        m.setCenter({ lat, lng });
+      };
+
+      if (needsZoom) {
+        const onIdle = () => {
+          google.maps.event.removeListener(listener);
+          doCenter();
+        };
+        const listener = map.addListener('idle', onIdle);
+      } else {
+        doCenter();
       }
-
-      map.setZoom(targetZoom);
-      map.setCenter(centerLatLng);
     },
     [isDesktop],
   );
