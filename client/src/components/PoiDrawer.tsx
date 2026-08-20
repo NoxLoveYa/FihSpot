@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDownload, faExpand, faFish, faMapLocationDot, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faExpand, faFish, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { staticMapUrl } from '../lib/googleMaps';
@@ -142,8 +142,6 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
     }
   }
 
-  const googleMapsUrl = poi ? `https://www.google.com/maps?q=${poi.lat},${poi.lng}` : '';
-
   return (
     <AnimatePresence>
       {poiId && (
@@ -250,15 +248,6 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                         {t('poi.viewOnMap')}
                       </button>
                     )}
-                    <a
-                      href={googleMapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-glossy flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-emerald-500/40 bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-all hover:brightness-105 dark:border-emerald-400/40 dark:bg-emerald-500/25 dark:text-emerald-400"
-                    >
-                      <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
-                      {t('poi.openInMaps')}
-                    </a>
                   </div>
 
                   <section>

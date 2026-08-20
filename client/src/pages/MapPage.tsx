@@ -356,7 +356,13 @@ export function MapPage() {
         const headerEl = document.querySelector('header');
         const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : vh * 0.08;
         const drawerTop = vh * 0.15; // PoiDrawer is a fixed h-[85dvh] bottom sheet
-        ty = (headerBottom + drawerTop) / 2 + 10 - rect.top;
+        // The pin marker (36px, anchored at its center) must stay fully visible
+        // in the strip between the navbar and the bottom sheet: keep the anchor
+        // at the strip center, but never so low that the pin tip hides behind
+        // the sheet edge.
+        const stripCenter = (headerBottom + drawerTop) / 2;
+        const maxAnchor = drawerTop - 24;
+        ty = Math.min(stripCenter, maxAnchor) - rect.top;
       }
 
       const currentZoom = map.getZoom() ?? 13;
