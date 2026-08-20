@@ -66,6 +66,8 @@ export const en = {
   'poi.photoAdded': 'Photo added',
   'poi.genericError': 'Error',
   'poi.uploadError': 'Upload failed',
+  'poi.minimize': 'Minimize panel',
+  'poi.restore': 'Open point',
 
   'search.placeholder': 'Search a city, a place…',
   'search.clear': 'Clear',

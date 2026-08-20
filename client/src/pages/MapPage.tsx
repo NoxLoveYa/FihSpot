@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFish } from '@fortawesome/free-solid-svg-icons';
+import { faFish, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { LatLng } from '../lib/googleMaps';
 import type { Bounds, LocationShare, PoISummary } from '../api/types';
 import { api, getCachedPois, setCachedPois } from '../api/client';
@@ -31,6 +31,7 @@ export function MapPage() {
   const { toast } = useToast();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [poiMinimized, setPoiMinimized] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
   const [pois, setPois] = useState<PoISummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -157,6 +158,7 @@ export function MapPage() {
     if (poiId) {
       setSelectedId(poiId);
       setPendingFocus(poiId);
+      setPoiMinimized(true);
       setSearchParams({}, { replace: true });
       return;
     }
@@ -212,6 +214,7 @@ export function MapPage() {
 
   const refresh = useCallback(() => {
     setSelectedId(null);
+    setPoiMinimized(false);
     setPois([]);
     loadBounds({ swLat: -90, swLng: -180, neLat: 90, neLng: 180 });
   }, [loadBounds]);
@@ -271,7 +274,10 @@ export function MapPage() {
     }
   }, [canSearch, searchArea, handleClearSearch]);
 
-  const handleCloseDrawer = useCallback(() => setSelectedId(null), []);
+  const handleCloseDrawer = useCallback(() => {
+    setSelectedId(null);
+    setPoiMinimized(false);
+  }, []);
 
   const runScan = useCallback(
     async (area: { lat: number; lng: number }) => {
@@ -310,6 +316,7 @@ export function MapPage() {
     (latlng: LatLng, kind: PickKind) => {
       if (kind === 'scan') {
         setSelectedId(null);
+        setPoiMinimized(false);
         setDraftPosition(null);
         setSearchPosition(null);
         setSearchArea({ lat: latlng.lat, lng: latlng.lng });
@@ -317,6 +324,7 @@ export function MapPage() {
       }
       handleClearSearch();
       setSelectedId(null);
+      setPoiMinimized(false);
       setDraftPosition(latlng);
       setSearchPosition(null);
     },
@@ -325,6 +333,7 @@ export function MapPage() {
 
   const handleSearchSelect = useCallback((lat: number, lng: number) => {
     setSelectedId(null);
+    setPoiMinimized(false);
     setDraftPosition(null);
     setSearchPosition({ lat, lng });
     mapRef.current?.panTo({ lat, lng });
@@ -444,6 +453,7 @@ export function MapPage() {
   const handleAddCandidate = useCallback((latlng: LatLng) => {
     setCandidates((prev) => prev.filter((c) => haversineKm(c, latlng) > 0.005));
     setSelectedId(null);
+    setPoiMinimized(false);
     setSearchPosition(null);
     setDraftPosition({ lat: latlng.lat, lng: latlng.lng });
   }, []);
@@ -472,6 +482,7 @@ export function MapPage() {
         onBoundsChange={handleBoundsChange}
         onSelect={(id) => {
           setSelectedId(id);
+          setPoiMinimized(false);
           setDraftPosition(null);
           setSearchPosition(null);
         }}
@@ -488,7 +499,9 @@ export function MapPage() {
 
       <PoiDrawer
         poiId={selectedId}
+        minimized={poiMinimized}
         onClose={handleCloseDrawer}
+        onMinimize={() => setPoiMinimized(true)}
         onPoiChanged={reload}
       />
 
@@ -543,7 +556,34 @@ export function MapPage() {
         </button>
       )}
 
-      {!selectedId && (
+      {selectedId && poiMinimized && (
+        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[1350] flex -translate-x-1/2 items-center gap-2 md:bottom-auto md:left-auto md:right-6 md:top-24 md:translate-x-0">
+          <button
+            onClick={() => setPoiMinimized(false)}
+            aria-label={t('poi.restore')}
+            title={t('poi.restore')}
+            className="glass-strong flex max-w-[70vw] items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 dark:text-slate-100"
+          >
+            <FontAwesomeIcon icon={faFish} className="h-4 w-4 shrink-0 text-brand-500" />
+            <span className="truncate">
+              {[...pois, ...searchPois].find((p) => p.id === selectedId)?.name ?? t('poi.restore')}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedId(null);
+              setPoiMinimized(false);
+            }}
+            aria-label={t('poi.close')}
+            title={t('poi.close')}
+            className="glass-strong grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-500 shadow-float transition-colors hover:brightness-105 dark:text-slate-300"
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+      )}
+
+      {(!selectedId || poiMinimized) && (
         <UserLocationButton
           map={mapRef.current}
           onLocate={handleLocate}

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDownload, faExpand, faFish, faMapPin, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faExpand, faFish, faMapPin, faMinus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { Photo, PoI } from '../api/types';
 import { api, ApiError } from '../api/client';
 import { staticMapUrl } from '../lib/googleMaps';
@@ -17,7 +17,9 @@ import i18n from '../i18n';
 
 interface PoiDrawerProps {
   poiId: string | null;
+  minimized?: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
   onPoiChanged?: () => void;
   onViewOnMap?: () => void;
 }
@@ -26,12 +28,13 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDrawerProps) {
+export function PoiDrawer({ poiId, minimized, onClose, onMinimize, onPoiChanged, onViewOnMap }: PoiDrawerProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 768px)');
+  const dragControls = useDragControls();
   const [poi, setPoi] = useState<PoI | null>(null);
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState(0);
@@ -144,7 +147,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
 
   return (
     <AnimatePresence>
-      {poiId && (
+      {poiId && !minimized && (
         <>
           <motion.div
             key="backdrop"
@@ -160,11 +163,29 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
             animate={isDesktop ? { x: 0 } : { y: 0 }}
             exit={isDesktop ? { x: '100%' } : { y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+            drag={isDesktop ? false : 'y'}
+            dragListener={false}
+            dragControls={dragControls}
+            dragConstraints={{ top: 0, bottom: 250 }}
+            dragMomentum={false}
+            dragSnapToOrigin
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 120 || info.velocity.y > 800) onMinimize?.();
+            }}
             className={`glass-strong fixed z-[1400] flex flex-col overflow-hidden rounded-t-3xl md:bottom-0 md:left-auto md:top-0 md:h-full md:rounded-none md:rounded-l-3xl ${
               isDesktop ? 'right-0 w-[420px]' : 'inset-x-0 bottom-0 h-[85dvh]'
             }`}
             data-poi-drawer
           >
+            {!isDesktop && (
+              <div
+                onPointerDown={(e) => dragControls.start(e)}
+                aria-hidden="true"
+                className="flex shrink-0 cursor-grab touch-none items-center justify-center py-3 active:cursor-grabbing"
+              >
+                <div className="h-1.5 w-12 rounded-full bg-slate-400/50" />
+              </div>
+            )}
             {loading || !poi ? (
               <div className="flex flex-col gap-4 p-5">
                 <Skeleton className="h-7 w-2/3" />
@@ -194,13 +215,25 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                       {formatDate(poi.createdAt)}
                     </p>
                   </div>
-                  <button
-                    onClick={onClose}
-                    aria-label={t('poi.close')}
-                    className="glass grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
-                  >
-                    <FontAwesomeIcon icon={faXmark} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {isDesktop && (
+                      <button
+                        onClick={onMinimize}
+                        aria-label={t('poi.minimize')}
+                        title={t('poi.minimize')}
+                        className="glass grid h-9 w-9 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
+                      >
+                        <FontAwesomeIcon icon={faMinus} />
+                      </button>
+                    )}
+                    <button
+                      onClick={onClose}
+                      aria-label={t('poi.close')}
+                      className="glass grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:brightness-105 dark:text-slate-300"
+                    >
+                      <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-6 overflow-y-auto p-4 safe-bottom">
