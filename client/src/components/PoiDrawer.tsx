@@ -244,7 +244,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                     {onViewOnMap && (
                       <button
                         onClick={onViewOnMap}
-                        className="btn-glossy flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-brand-500/40 px-4 py-2.5 text-sm font-semibold text-brand-700 transition-all hover:brightness-105 dark:border-brand-400/40 dark:text-brand-200"
+                        className="btn-glossy flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-brand-500/40 bg-brand-500/20 px-4 py-2.5 text-sm font-semibold text-brand-700 transition-all hover:brightness-105 dark:border-brand-400/40 dark:bg-brand-500/25 dark:text-brand-200"
                       >
                         <FontAwesomeIcon icon={faMapPin} className="h-4 w-4" />
                         {t('poi.viewOnMap')}
@@ -254,7 +254,7 @@ export function PoiDrawer({ poiId, onClose, onPoiChanged, onViewOnMap }: PoiDraw
                       href={googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-glossy flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-rose-500/40 px-4 py-2.5 text-sm font-semibold text-rose-600 transition-all hover:brightness-105 dark:border-rose-400/40 dark:text-rose-400"
+                      className="btn-glossy flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-emerald-500/40 bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-all hover:brightness-105 dark:border-emerald-400/40 dark:bg-emerald-500/25 dark:text-emerald-400"
                     >
                       <FontAwesomeIcon icon={faMapLocationDot} className="h-4 w-4" />
                       {t('poi.openInMaps')}

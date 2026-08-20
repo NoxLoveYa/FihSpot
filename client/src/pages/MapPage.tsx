@@ -336,7 +336,9 @@ export function MapPage() {
   }, []);
 
   // Centers the map on a POI, keeping it visible next to the open panel
-  // (left of the 420px side panel on desktop, above the bottom sheet on mobile).
+  // (left of the 420px side panel on desktop, in the strip above the bottom
+  // sheet on mobile). The target center is computed at the final zoom so the
+  // pixel offset survives the zoom animation (no panBy drift).
   const panToPoi = useCallback(
     (lat: number, lng: number) => {
       const map = mapRef.current;
@@ -344,11 +346,43 @@ export function MapPage() {
       const rect = map.getDiv().getBoundingClientRect();
       const w = rect.width;
       const h = rect.height;
-      const tx = isDesktop ? Math.max(10, (w - 420) / 2) : w / 2;
-      const ty = isDesktop ? h / 2 : h * 0.16;
-      map.setCenter({ lat, lng });
-      map.panBy(w / 2 - tx, h / 2 - ty);
-      if ((map.getZoom() ?? 0) < 14) map.setZoom(14);
+      const vh = window.innerHeight;
+
+      let tx = w / 2;
+      let ty: number;
+      if (isDesktop) {
+        ty = h / 2;
+      } else {
+        const headerEl = document.querySelector('header');
+        const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : vh * 0.08;
+        const drawerTop = vh * 0.15; // PoiDrawer is a fixed h-[85dvh] bottom sheet
+        ty = (headerBottom + drawerTop) / 2 + 10 - rect.top;
+      }
+
+      const currentZoom = map.getZoom() ?? 13;
+      const targetZoom = Math.max(currentZoom, isDesktop ? 14 : 15);
+
+      let centerLatLng: { lat: number; lng: number } = { lat, lng };
+      const projection = map.getProjection();
+      const bounds = map.getBounds();
+      if (projection && bounds) {
+        const ne = projection.fromLatLngToPoint(bounds.getNorthEast());
+        const sw = projection.fromLatLngToPoint(bounds.getSouthWest());
+        const point = projection.fromLatLngToPoint({ lat, lng });
+        if (ne && sw && point) {
+          const factor = Math.pow(2, currentZoom - targetZoom);
+          let spanW = (ne.x - sw.x) * factor;
+          const spanH = (sw.y - ne.y) * factor;
+          if (spanW <= 0) spanW += 256 * factor;
+          const cx = point.x + ((w / 2 - tx) / w) * spanW;
+          const cy = point.y + ((h / 2 - ty) / h) * spanH;
+          const center = projection.fromPointToLatLng(new google.maps.Point(cx, cy));
+          if (center) centerLatLng = { lat: center.lat(), lng: center.lng() };
+        }
+      }
+
+      map.setZoom(targetZoom);
+      map.setCenter(centerLatLng);
     },
     [isDesktop],
   );
