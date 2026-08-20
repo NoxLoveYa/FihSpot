@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
   faCamera,
+  faCheck,
+  faChevronDown,
   faComment,
   faDownload,
   faExpand,
   faFish,
+  faMagnifyingGlass,
   faMapPin,
   faPenToSquare,
   faShieldHalved,
   faTrash,
+  faUser,
   faUserGroup,
+  faUsers,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import type { AdminModerationComment, AdminModerationPhoto, AdminPoi, AdminStatsResponse, AdminUser, Role } from '../api/types';
@@ -34,9 +40,9 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function StatCard({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
+function StatCard({ label, value, icon, className }: { label: string; value: number | string; icon: React.ReactNode; className?: string }) {
   return (
-    <div className="glass-strong flex flex-col gap-1.5 rounded-2xl p-4">
+    <div className={`glass-strong flex flex-col gap-1.5 rounded-2xl p-4 ${className ?? ''}`}>
       <div className="flex items-center gap-2 text-slate-400">
         <span className="text-sm">{icon}</span>
         <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
@@ -253,6 +259,171 @@ interface EditPoi {
   demo: boolean;
 }
 
+type ModType = 'comments' | 'photos';
+
+interface UserOption {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+function UserAvatar({ user, size }: { user: UserOption; size?: string }) {
+  const cls = size ?? 'h-6 w-6 text-[10px]';
+  return user.avatarUrl ? (
+    <img src={user.avatarUrl} alt="" className={`${cls} shrink-0 rounded-full object-cover`} />
+  ) : (
+    <span
+      className={`grid ${cls} shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700 dark:bg-brand-900/60 dark:text-brand-200`}
+    >
+      {user.name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+/** Multi-select user filter styled like the PoisPage one, backed by the admin
+ *  users search endpoint so the list is server-side searchable. */
+function AdminUserFilter({
+  selectedIds,
+  onToggle,
+  onSetAll,
+}: {
+  selectedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onSetAll: (all: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [options, setOptions] = useState<UserOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const count = selectedIds.size;
+  const noFilter = count === 0;
+  const single = count === 1 ? options.find((u) => selectedIds.has(u.id)) ?? null : null;
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent | MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let disposed = false;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      api
+        .listUsers({ search: query.trim(), sort: 'name' })
+        .then(({ users }) => {
+          if (!disposed) setOptions(users.map((u) => ({ id: u.id, name: u.name, avatarUrl: u.avatarUrl })));
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!disposed) setLoading(false);
+        });
+    }, 200);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query]);
+
+  const optionCls = (active: boolean) =>
+    `flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold transition-colors ${
+      active
+        ? 'bg-brand-500/15 text-brand-700 dark:text-brand-200'
+        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
+    }`;
+
+  const check = (checked: boolean) => (
+    <span
+      className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
+        checked ? 'border-brand-500 bg-brand-500 text-white' : 'border-slate-300 dark:border-slate-600'
+      }`}
+    >
+      {checked && <FontAwesomeIcon icon={faCheck} className="h-3 w-3" />}
+    </span>
+  );
+
+  return (
+    <div ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('pois.filterUser')}
+        className="glass flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-bold text-slate-700 transition-all hover:brightness-105 dark:text-slate-200"
+      >
+        {single ? (
+          <UserAvatar user={single} size="h-6 w-6 text-[11px]" />
+        ) : (
+          <FontAwesomeIcon icon={count > 0 ? faUser : faUsers} className="h-3.5 w-3.5 text-brand-500" />
+        )}
+        <span className="max-w-[10rem] truncate">
+          {count === 0 ? t('pois.allUsers') : single ? single.name : `${count} ${t('pois.users')}`}
+        </span>
+        <FontAwesomeIcon icon={faChevronDown} className={`h-3 w-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            role="listbox"
+            aria-multiselectable="true"
+            className="glass-strong absolute right-0 z-50 mt-2 w-72 max-w-[min(100%,calc(100vw-1rem))] overflow-hidden rounded-2xl shadow-float"
+          >
+            <div className="flex items-center gap-2 border-b border-slate-200/60 px-3 py-2 dark:border-slate-700">
+              <FontAwesomeIcon icon={faMagnifyingGlass} className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('admin.users.search')}
+                className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+              />
+            </div>
+            <div className="max-h-[50dvh] overflow-y-auto p-1.5">
+              <button role="option" aria-selected={noFilter} onClick={() => onSetAll(true)} className={optionCls(noFilter)}>
+                {check(noFilter)}
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-300">
+                  <FontAwesomeIcon icon={faUsers} className="h-3.5 w-3.5" />
+                </span>
+                {t('pois.allUsers')}
+              </button>
+
+              <div className="mx-2 my-1 h-px bg-slate-200/70 dark:bg-slate-700" />
+
+              {loading ? (
+                <p className="px-3 py-2 text-xs text-slate-400">{t('admin.actions.loading')}</p>
+              ) : (
+                options.map((u) => (
+                  <button
+                    key={u.id}
+                    role="option"
+                    aria-selected={selectedIds.has(u.id)}
+                    onClick={() => onToggle(u.id)}
+                    className={optionCls(selectedIds.has(u.id))}
+                  >
+                    {check(selectedIds.has(u.id))}
+                    <UserAvatar user={u} size="h-7 w-7 text-xs" />
+                    <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -283,12 +454,16 @@ export function AdminPage() {
   const [poiPages, setPoiPages] = useState(1);
   const [poiTotal, setPoiTotal] = useState(0);
   const [poiSearch, setPoiSearch] = useState('');
+  const [poiUserIds, setPoiUserIds] = useState<Set<string>>(new Set());
   const [poisLoading, setPoisLoading] = useState(true);
   const [busyPoi, setBusyPoi] = useState<string | null>(null);
   const [editingPoi, setEditingPoi] = useState<EditPoi | null>(null);
   const [deletingPoi, setDeletingPoi] = useState<AdminPoi | null>(null);
 
   // Moderation
+  const [modType, setModType] = useState<ModType>('comments');
+  const [modUserIds, setModUserIds] = useState<Set<string>>(new Set());
+  const [modSearch, setModSearch] = useState('');
   const [modComments, setModComments] = useState<AdminModerationComment[]>([]);
   const [modPhotos, setModPhotos] = useState<AdminModerationPhoto[]>([]);
   const [modLoading, setModLoading] = useState(true);
@@ -325,10 +500,10 @@ export function AdminPage() {
   );
 
   const loadPois = useCallback(
-    async (page: number, search: string) => {
+    async (page: number, search: string, userIds: Set<string>) => {
       setPoisLoading(true);
       try {
-        const res = await api.listPoisAdmin({ page, search });
+        const res = await api.listPoisAdmin({ page, search, userIds: [...userIds] });
         setPois(res.pois);
         setPoiPages(res.pages);
         setPoiTotal(res.total);
@@ -341,18 +516,21 @@ export function AdminPage() {
     [toast, t],
   );
 
-  const loadModeration = useCallback(async () => {
-    setModLoading(true);
-    try {
-      const res = await api.moderation();
-      setModComments(res.comments);
-      setModPhotos(res.photos);
-    } catch (e) {
-      toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
-    } finally {
-      setModLoading(false);
-    }
-  }, [toast, t]);
+  const loadModeration = useCallback(
+    async (type: ModType, userIds: Set<string>) => {
+      setModLoading(true);
+      try {
+        const res = await api.moderation(type, [...userIds]);
+        if (type === 'comments') setModComments(res.comments ?? []);
+        else setModPhotos(res.photos ?? []);
+      } catch (e) {
+        toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
+      } finally {
+        setModLoading(false);
+      }
+    },
+    [toast, t],
+  );
 
   useEffect(() => {
     loadStats();
@@ -363,12 +541,12 @@ export function AdminPage() {
   }, [tab, userPage, userSearch, userSort, loadUsers]);
 
   useEffect(() => {
-    if (tab === 'pois') loadPois(poiPage, poiSearch);
-  }, [tab, poiPage, poiSearch, loadPois]);
+    if (tab === 'pois') loadPois(poiPage, poiSearch, poiUserIds);
+  }, [tab, poiPage, poiSearch, poiUserIds, loadPois]);
 
   useEffect(() => {
-    if (tab === 'moderation') loadModeration();
-  }, [tab, loadModeration]);
+    if (tab === 'moderation') loadModeration(modType, modUserIds);
+  }, [tab, modType, modUserIds, loadModeration]);
 
   const handleUserSearch = (value: string) => {
     setUserSearch(value);
@@ -379,6 +557,44 @@ export function AdminPage() {
     setPoiSearch(value);
     setPoiPage(1);
   };
+
+  const togglePoiUser = useCallback((id: string) => {
+    setPoiUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setPoiPage(1);
+  }, []);
+
+  const setAllPoiUsers = useCallback(() => {
+    setPoiUserIds(new Set());
+    setPoiPage(1);
+  }, []);
+
+  const toggleModUser = useCallback((id: string) => {
+    setModUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const setAllModUsers = useCallback(() => {
+    setModUserIds(new Set());
+  }, []);
+
+  const q = modSearch.trim().toLowerCase();
+  const filteredComments = useMemo(
+    () => modComments.filter((c) => !q || c.content.toLowerCase().includes(q) || c.user.name.toLowerCase().includes(q)),
+    [modComments, q],
+  );
+  const filteredPhotos = useMemo(
+    () => modPhotos.filter((p) => !q || p.poi.name.toLowerCase().includes(q)),
+    [modPhotos, q],
+  );
 
   async function toggleUserSearch(target: AdminUser) {
     setBusyUser(target.id);
@@ -455,7 +671,7 @@ export function AdminPage() {
       await api.deletePoiAdmin(deletingPoi.id);
       toast(t('admin.pois.deleted'), 'success');
       setDeletingPoi(null);
-      loadPois(poiPage, poiSearch);
+      loadPois(poiPage, poiSearch, poiUserIds);
       loadStats();
     } catch (e) {
       toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
@@ -469,7 +685,7 @@ export function AdminPage() {
     try {
       await api.updatePoiAdmin(poi.id, { demo: !poi.demo });
       toast(t('admin.pois.saved'), 'success');
-      loadPois(poiPage, poiSearch);
+      loadPois(poiPage, poiSearch, poiUserIds);
       loadStats();
     } catch (e) {
       toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
@@ -490,7 +706,7 @@ export function AdminPage() {
       });
       toast(t('admin.pois.saved'), 'success');
       setEditingPoi(null);
-      loadPois(poiPage, poiSearch);
+      loadPois(poiPage, poiSearch, poiUserIds);
       loadStats();
     } catch (e) {
       toast(e instanceof ApiError ? e.message : t('admin.loadError'), 'error');
@@ -535,23 +751,25 @@ export function AdminPage() {
 
   return (
     <div className="page-shell">
-      <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
-        >
-          <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
-          {t('admin.back')}
-        </button>
-        <h1 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
-          <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4 text-amber-500" />
-          {t('admin.title')}
-        </h1>
-        <div className="flex items-center gap-2">
-          <ThemeToggle className="text-slate-600 dark:text-slate-200" />
-          <LanguageToggle className="text-slate-600 dark:text-slate-200" />
+      <div className="glass sticky top-0 z-40 pt-[max(env(safe-area-inset-top),0.75rem)]">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
+            {t('admin.back')}
+          </button>
+          <h1 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
+            <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4 text-amber-500" />
+            {t('admin.title')}
+          </h1>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="text-slate-600 dark:text-slate-200" />
+            <LanguageToggle className="text-slate-600 dark:text-slate-200" />
+          </div>
         </div>
-      </header>
+      </div>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
         <div className="glass mb-6 flex gap-1 rounded-2xl p-1">
@@ -569,7 +787,7 @@ export function AdminPage() {
         </div>
 
         {tab === 'overview' && (
-          <div>
+          <div className="rounded-3xl border border-slate-200/60 bg-white/40 p-4 backdrop-blur-sm sm:p-6 dark:border-slate-700/60 dark:bg-slate-900/30">
             {statsLoading ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -584,7 +802,12 @@ export function AdminPage() {
                     <StatCard label={t('admin.stats.pois')} value={stats.stats.pois} icon={<FontAwesomeIcon icon={faMapPin} />} />
                     <StatCard label={t('admin.stats.comments')} value={stats.stats.comments} icon={<FontAwesomeIcon icon={faComment} />} />
                     <StatCard label={t('admin.stats.photos')} value={stats.stats.photos} icon={<FontAwesomeIcon icon={faCamera} />} />
-                    <StatCard label={t('admin.stats.demoPois')} value={stats.stats.demoPois} icon={<FontAwesomeIcon icon={faShieldHalved} />} />
+                    <StatCard
+                      label={t('admin.stats.demoPois')}
+                      value={stats.stats.demoPois}
+                      icon={<FontAwesomeIcon icon={faShieldHalved} />}
+                      className="col-span-2 md:col-span-1"
+                    />
                   </div>
 
                   <h2 className="mb-3 mt-8 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -612,45 +835,47 @@ export function AdminPage() {
         )}
 
         {tab === 'users' && (
-          <div>
-            <div className="glass mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex flex-1 items-center gap-2 rounded-2xl px-3.5">
-                <FontAwesomeIcon icon={faUserGroup} className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="rounded-3xl border border-slate-200/60 bg-white/40 p-4 backdrop-blur-sm sm:p-6 dark:border-slate-700/60 dark:bg-slate-900/30">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="glass flex min-w-0 flex-1 items-center gap-2 rounded-2xl px-3.5">
+                <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
                 <input
                   value={userSearch}
                   onChange={(e) => handleUserSearch(e.target.value)}
                   placeholder={t('admin.users.search')}
-                  className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
                 />
               </div>
-              <div className="px-3 pb-2 sm:pb-0">
+              <label className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <FontAwesomeIcon icon={faUserGroup} className="h-3 w-3 text-brand-500" />
                 <select
                   value={userSort}
                   onChange={(e) => {
                     setUserSort(e.target.value);
                     setUserPage(1);
                   }}
-                  className="rounded-xl bg-white/80 px-3 py-2 text-xs font-semibold outline-none dark:bg-slate-800"
+                  className="bg-transparent text-xs font-semibold outline-none dark:bg-slate-800"
                   aria-label={t('admin.users.role')}
                 >
                   <option value="newest">{t('pois.sort.newest')}</option>
                   <option value="name">{t('fields.name')}</option>
                   <option value="role">{t('admin.users.role')}</option>
                 </select>
-              </div>
+              </label>
             </div>
 
-            {usersLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-2xl" />
-                ))}
-              </div>
-            ) : users.length === 0 ? (
-              <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.users.noResults')}</p>
-            ) : (
-              <>
-                <div className="glass-strong divide-y divide-slate-200/60 overflow-hidden rounded-2xl dark:divide-slate-700">
+            <div className="mt-5">
+              {usersLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+                  ))}
+                </div>
+              ) : users.length === 0 ? (
+                <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.users.noResults')}</p>
+              ) : (
+                <>
+                  <div className="glass-strong divide-y divide-slate-200/60 overflow-hidden rounded-2xl dark:divide-slate-700">
                   {users.map((u) => (
                     <div key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                       <Avatar url={u.avatarUrl} name={u.name} />
@@ -717,75 +942,109 @@ export function AdminPage() {
                 <Pagination page={userPage} pages={userPages} onChange={setUserPage} />
               </>
             )}
+            </div>
           </div>
         )}
 
         {tab === 'pois' && (
-          <div>
-            <div className="glass mb-4 flex items-center gap-2 rounded-2xl px-3.5">
-              <FontAwesomeIcon icon={faMapPin} className="h-4 w-4 shrink-0 text-slate-400" />
-              <input
-                value={poiSearch}
-                onChange={(e) => handlePoiSearch(e.target.value)}
-                placeholder={t('admin.pois.search')}
-                className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
-              />
-            </div>
-
-            {poisLoading ? (
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="glass-strong overflow-hidden rounded-3xl">
-                    <Skeleton className="h-36 w-full rounded-none" />
-                    <div className="flex flex-col gap-2 p-4">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-3 w-full" />
-                      <Skeleton className="h-3 w-4/5" />
-                    </div>
-                  </div>
-                ))}
+          <div className="rounded-3xl border border-slate-200/60 bg-white/40 p-4 backdrop-blur-sm sm:p-6 dark:border-slate-700/60 dark:bg-slate-900/30">
+              <div className="relative flex flex-wrap items-center gap-2">
+                <div className="glass flex min-w-0 flex-1 items-center gap-2 rounded-2xl px-3.5">
+                  <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
+                  <input
+                    value={poiSearch}
+                    onChange={(e) => handlePoiSearch(e.target.value)}
+                    placeholder={t('admin.pois.search')}
+                    className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                  />
+                </div>
+                <AdminUserFilter selectedIds={poiUserIds} onToggle={togglePoiUser} onSetAll={setAllPoiUsers} />
               </div>
-            ) : pois.length === 0 ? (
-              <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.pois.noResults')}</p>
-            ) : (
-              <>
+
+            <div className="mt-5">
+              {poisLoading ? (
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {pois.map((p) => (
-                    <AdminPoiCard
-                      key={p.id}
-                      poi={p}
-                      busy={busyPoi === p.id}
-                      onEdit={() => setEditingPoi({ poi: p, name: p.name, description: p.description ?? '', category: p.category ?? '', demo: p.demo })}
-                      onToggleDemo={() => togglePoiDemo(p)}
-                      onDelete={() => setDeletingPoi(p)}
-                    />
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="glass-strong overflow-hidden rounded-3xl">
+                      <Skeleton className="h-36 w-full rounded-none" />
+                      <div className="flex flex-col gap-2 p-4">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <p className="mt-3 text-center text-xs text-slate-400">{t('admin.pois.total', { count: poiTotal })}</p>
-                <Pagination page={poiPage} pages={poiPages} onChange={setPoiPage} />
-              </>
-            )}
+              ) : pois.length === 0 ? (
+                <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.pois.noResults')}</p>
+              ) : (
+                <>
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {pois.map((p) => (
+                      <AdminPoiCard
+                        key={p.id}
+                        poi={p}
+                        busy={busyPoi === p.id}
+                        onEdit={() => setEditingPoi({ poi: p, name: p.name, description: p.description ?? '', category: p.category ?? '', demo: p.demo })}
+                        onToggleDemo={() => togglePoiDemo(p)}
+                        onDelete={() => setDeletingPoi(p)}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-3 text-center text-xs text-slate-400">{t('admin.pois.total', { count: poiTotal })}</p>
+                  <Pagination page={poiPage} pages={poiPages} onChange={setPoiPage} />
+                </>
+              )}
+            </div>
           </div>
         )}
 
         {tab === 'moderation' && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                <FontAwesomeIcon icon={faComment} className="h-3.5 w-3.5" />
-                {t('admin.mod.comments')}
-              </h2>
-              {modLoading ? (
-                <div className="space-y-3">
+          <div className="rounded-3xl border border-slate-200/60 bg-white/40 p-4 backdrop-blur-sm sm:p-6 dark:border-slate-700/60 dark:bg-slate-900/30">
+            <div className="flex flex-col gap-3">
+              <div className="glass flex items-center gap-2 rounded-2xl px-3.5">
+                <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 shrink-0 text-slate-400" />
+                <input
+                  value={modSearch}
+                  onChange={(e) => setModSearch(e.target.value)}
+                  placeholder={modType === 'comments' ? t('admin.mod.searchComments') : t('admin.mod.searchPhotos')}
+                  className="h-11 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="relative flex flex-wrap items-center justify-between gap-2">
+                <div className="glass flex gap-1 rounded-2xl p-1">
+                  {(['comments', 'photos'] as ModType[]).map((mt) => (
+                    <button
+                      key={mt}
+                      onClick={() => setModType(mt)}
+                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors ${
+                        modType === mt
+                          ? 'bg-brand-600 text-white'
+                          : 'text-slate-500 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={mt === 'comments' ? faComment : faCamera} className="h-3.5 w-3.5" />
+                      {mt === 'comments' ? t('admin.mod.comments') : t('admin.mod.photos')}
+                    </button>
+                  ))}
+                </div>
+                <AdminUserFilter selectedIds={modUserIds} onToggle={toggleModUser} onSetAll={setAllModUsers} />
+              </div>
+            </div>
+
+            {modType === 'comments' ? (
+              modLoading ? (
+                <div className="mt-5 space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="h-16 w-full rounded-2xl" />
                   ))}
                 </div>
-              ) : modComments.length === 0 ? (
-                <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noComments')}</p>
+              ) : filteredComments.length === 0 ? (
+                <p className="glass mt-5 rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noComments')}</p>
               ) : (
-                <div className="space-y-3">
-                  {modComments.map((c) => (
+                <div className="mt-5 space-y-3">
+                  {filteredComments.map((c) => (
                     <div key={c.id} className="glass-strong rounded-2xl p-4">
                       <div className="flex items-start gap-3">
                         <Avatar url={c.user.avatarUrl} name={c.user.name} size="h-9 w-9" />
@@ -817,64 +1076,56 @@ export function AdminPage() {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                <FontAwesomeIcon icon={faCamera} className="h-3.5 w-3.5" />
-                {t('admin.mod.photos')}
-              </h2>
-              {modLoading ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="aspect-square w-full rounded-2xl" />
-                  ))}
-                </div>
-              ) : modPhotos.length === 0 ? (
-                <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noPhotos')}</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {modPhotos.map((p) => (
-                    <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl">
-                      <button onClick={() => setViewingPhoto(p)} aria-label={t('poi.viewPhoto')} title={t('poi.viewPhoto')} className="block h-full w-full">
-                        <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+              )
+            ) : modLoading ? (
+              <div className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-square w-full rounded-2xl" />
+                ))}
+              </div>
+            ) : filteredPhotos.length === 0 ? (
+              <p className="glass mt-5 rounded-2xl px-4 py-8 text-center text-sm text-slate-400">{t('admin.mod.noPhotos')}</p>
+            ) : (
+              <div className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+                {filteredPhotos.map((p) => (
+                  <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl">
+                    <button onClick={() => setViewingPhoto(p)} aria-label={t('poi.viewPhoto')} title={t('poi.viewPhoto')} className="block h-full w-full">
+                      <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                    </button>
+                    <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">
+                      {p.poi.name}
+                    </span>
+                    <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                      <button
+                        onClick={() => setViewingPhoto(p)}
+                        aria-label={t('poi.viewPhoto')}
+                        title={t('poi.viewPhoto')}
+                        className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                      >
+                        <FontAwesomeIcon icon={faExpand} className="h-3 w-3" />
                       </button>
-                      <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">
-                        {p.poi.name}
-                      </span>
-                      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                        <button
-                          onClick={() => setViewingPhoto(p)}
-                          aria-label={t('poi.viewPhoto')}
-                          title={t('poi.viewPhoto')}
-                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                        >
-                          <FontAwesomeIcon icon={faExpand} className="h-3 w-3" />
-                        </button>
-                        <a
-                          href={p.url}
-                          download
-                          aria-label={t('poi.downloadPhoto')}
-                          title={t('poi.downloadPhoto')}
-                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                        >
-                          <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />
-                        </a>
-                        <button
-                          onClick={() => deletePhoto(p)}
-                          disabled={busyPhoto === p.id}
-                          title={t('admin.mod.deletePhoto')}
-                          className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
-                        >
-                          {busyPhoto === p.id ? <Spinner className="h-3 w-3" /> : <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />}
-                        </button>
-                      </div>
+                      <a
+                        href={p.url}
+                        download
+                        aria-label={t('poi.downloadPhoto')}
+                        title={t('poi.downloadPhoto')}
+                        className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                      >
+                        <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />
+                      </a>
+                      <button
+                        onClick={() => deletePhoto(p)}
+                        disabled={busyPhoto === p.id}
+                        title={t('admin.mod.deletePhoto')}
+                        className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-xs text-white backdrop-blur-sm transition-colors hover:bg-rose-600"
+                      >
+                        {busyPhoto === p.id ? <Spinner className="h-3 w-3" /> : <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />}
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

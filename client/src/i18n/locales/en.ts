@@ -209,6 +209,8 @@ export const en = {
   'admin.pois.deleted': 'Point deleted',
   'admin.mod.comments': 'Comments',
   'admin.mod.photos': 'Photos',
+  'admin.mod.searchComments': 'Search in comments…',
+  'admin.mod.searchPhotos': 'Search by point name…',
   'admin.mod.noComments': 'No recent comments.',
   'admin.mod.noPhotos': 'No recent photos.',
   'admin.mod.deleteComment': 'Delete comment',

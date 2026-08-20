@@ -228,18 +228,24 @@ export const api = {
     data: { name?: string; email?: string; role?: Role; password?: string; searchEnabled?: boolean },
   ) => request<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteUserAdmin: (id: string) => request<void>(`/admin/users/${id}`, { method: 'DELETE' }),
-  listPoisAdmin: (params: { search?: string; page?: number }) => {
+  listPoisAdmin: (params: { search?: string; page?: number; userIds?: string[] }) => {
     const qs = new URLSearchParams();
     if (params.search) qs.set('search', params.search);
     if (params.page) qs.set('page', String(params.page));
+    if (params.userIds && params.userIds.length > 0) qs.set('userIds', params.userIds.join(','));
     const q = qs.toString();
     return request<{ pois: AdminPoi[]; total: number; page: number; pages: number }>(`/admin/pois${q ? `?${q}` : ''}`);
   },
   updatePoiAdmin: (id: string, data: { name?: string; description?: string | null; category?: string | null; demo?: boolean }) =>
     request<{ poi: AdminPoi }>(`/admin/pois/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePoiAdmin: (id: string) => request<void>(`/admin/pois/${id}`, { method: 'DELETE' }),
-  moderation: () =>
-    request<{ comments: AdminModerationComment[]; photos: AdminModerationPhoto[] }>('/admin/moderation'),
+  moderation: (type: 'comments' | 'photos', userIds?: string[]) => {
+    const qs = new URLSearchParams();
+    qs.set('type', type);
+    if (userIds && userIds.length > 0) qs.set('userIds', userIds.join(','));
+    const q = qs.toString();
+    return request<{ comments?: AdminModerationComment[]; photos?: AdminModerationPhoto[] }>(`/admin/moderation?${q}`);
+  },
   deleteCommentAdmin: (id: string) => request<void>(`/admin/comments/${id}`, { method: 'DELETE' }),
   deletePhotoAdmin: (id: string) => request<void>(`/admin/photos/${id}`, { method: 'DELETE' }),
 };

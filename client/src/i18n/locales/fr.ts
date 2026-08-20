@@ -209,6 +209,8 @@ export const fr = {
   'admin.pois.deleted': 'Point supprimé',
   'admin.mod.comments': 'Commentaires',
   'admin.mod.photos': 'Photos',
+  'admin.mod.searchComments': 'Rechercher dans les commentaires…',
+  'admin.mod.searchPhotos': 'Rechercher par nom de point…',
   'admin.mod.noComments': 'Aucun commentaire récent.',
   'admin.mod.noPhotos': 'Aucune photo récente.',
   'admin.mod.deleteComment': 'Supprimer le commentaire',

@@ -162,18 +162,24 @@ router.delete('/users/:id', async (req, res, next) => {
 
 router.get('/pois', async (req, res, next) => {
   try {
-    const { search, page } = req.query as Record<string, string | undefined>;
+    const { search, page, userIds } = req.query as Record<string, string | undefined>;
     const take = 20;
     const skip = Math.max(0, (Number(page) || 1) - 1) * take;
 
-    const where = search?.trim()
-      ? {
-          OR: [
-            { name: { contains: search.trim(), mode: 'insensitive' as const } },
-            { description: { contains: search.trim(), mode: 'insensitive' as const } },
-          ],
-        }
-      : {};
+    const ids = userIds?.split(',').filter(Boolean);
+    const conditions: Record<string, unknown>[] = [];
+    if (search?.trim()) {
+      conditions.push({
+        OR: [
+          { name: { contains: search.trim(), mode: 'insensitive' as const } },
+          { description: { contains: search.trim(), mode: 'insensitive' as const } },
+        ],
+      });
+    }
+    if (ids && ids.length > 0) {
+      conditions.push({ createdById: { in: ids } });
+    }
+    const where = conditions.length > 0 ? { AND: conditions } : {};
 
     const [total, pois] = await Promise.all([
       prisma.poI.count({ where }),
@@ -237,28 +243,36 @@ router.delete('/pois/:id', async (req, res, next) => {
   }
 });
 
-router.get('/moderation', async (_req, res, next) => {
+router.get('/moderation', async (req, res, next) => {
   try {
-    const [comments, photos] = await Promise.all([
-      prisma.comment.findMany({
-        take: 50,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, name: true, avatarUrl: true } },
-          poi: { select: { id: true, name: true } },
-        },
-      }),
-      prisma.photo.findMany({
-        take: 50,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, name: true, avatarUrl: true } },
-          poi: { select: { id: true, name: true } },
-        },
-      }),
-    ]);
+    const { type, userIds } = req.query as Record<string, string | undefined>;
+    const ids = userIds?.split(',').filter(Boolean);
+    const where = ids && ids.length > 0 ? { userId: { in: ids } } : {};
 
-    res.json({ comments, photos });
+    if (type === 'comments') {
+      const comments = await prisma.comment.findMany({
+        where,
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, avatarUrl: true } },
+          poi: { select: { id: true, name: true } },
+        },
+      });
+      res.json({ comments });
+      return;
+    }
+
+    const photos = await prisma.photo.findMany({
+      where,
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } },
+        poi: { select: { id: true, name: true } },
+      },
+    });
+    res.json({ photos });
   } catch (e) {
     next(e);
   }
