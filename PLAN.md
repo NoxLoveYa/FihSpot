@@ -338,7 +338,7 @@ volumes:
 
 ## À configurer / à faire (optionnel)
 - **Google OAuth** : remplir `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` dans `.env`. Tant que vides, le bouton Google est masqué. (La vérification serveur du `aud` s'activera automatiquement dès que `GOOGLE_CLIENT_ID` est défini.)
-- **Restriction des clés Google Maps** : les clés (`VITE_GOOGLE_MAPS_API_KEY` client et `GOOGLE_MAPS_SERVER_KEY` serveur) sont renseignées dans `.env` ; les restreindre côté Google Cloud (clé client → HTTP referrers `https://fihspot.com/*`, clé serveur → restriction par IP + API Static Maps uniquement).
+- **Restriction des clés Google Maps** : une **clé serveur dédiée** (`GOOGLE_MAPS_SERVER_KEY`) est en place, restreinte par IP (IPv4 + IPv6 du VPS) et limitée à *Maps Static API*. Restreindre aussi la clé client (`VITE_GOOGLE_MAPS_API_KEY`) aux HTTP referrers `https://fihspot.com/*` côté Google Cloud.
 - **Tests d'API** : supertest (non ajouté à ce jour).
 - **Backups DB** : cronner `npm run db:backup` (ex. quotidien 4 h) — le script gère la rétention.
 - **Suite sécurité (basse priorité, voir SECURITY.md)** : refresh tokens / révocation de session, mitigation de l'énumération d'emails, sessions par cookies HttpOnly.
