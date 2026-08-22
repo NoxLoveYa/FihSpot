@@ -465,7 +465,7 @@ export function MapPage() {
       <Navbar
         mapType={mapType}
         onMapTypeChange={setMapType}
-        search={!selectedId ? <SearchBar onSelect={handleSearchSelect} /> : undefined}
+        search={<SearchBar onSelect={handleSearchSelect} />}
       />
       <GoogleMapView
         pois={searchArea ? searchPois : pois}
@@ -557,29 +557,31 @@ export function MapPage() {
       )}
 
       {selectedId && poiMinimized && (
-        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[1350] flex -translate-x-1/2 items-center gap-2 md:bottom-auto md:left-auto md:right-6 md:top-24 md:translate-x-0">
-          <button
-            onClick={() => setPoiMinimized(false)}
-            aria-label={t('poi.restore')}
-            title={t('poi.restore')}
-            className="glass-strong flex max-w-[70vw] items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 dark:text-slate-100"
-          >
-            <FontAwesomeIcon icon={faFish} className="h-4 w-4 shrink-0 text-brand-500" />
-            <span className="truncate">
-              {[...pois, ...searchPois].find((p) => p.id === selectedId)?.name ?? t('poi.restore')}
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              setSelectedId(null);
-              setPoiMinimized(false);
-            }}
-            aria-label={t('poi.close')}
-            title={t('poi.close')}
-            className="glass-strong grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-500 shadow-float transition-colors hover:brightness-105 dark:text-slate-300"
-          >
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-[1350] flex justify-center md:inset-x-auto md:bottom-auto md:right-6 md:top-24">
+          <div className="pointer-events-auto relative">
+            <button
+              onClick={() => setPoiMinimized(false)}
+              aria-label={t('poi.restore')}
+              title={t('poi.restore')}
+              className="glass-strong flex max-w-[70vw] items-center gap-2 rounded-full py-2.5 pl-4 pr-11 text-sm font-semibold text-slate-700 shadow-float transition-all hover:brightness-105 active:scale-95 dark:text-slate-100"
+            >
+              <FontAwesomeIcon icon={faFish} className="h-4 w-4 shrink-0 text-brand-500" />
+              <span className="truncate">
+                {[...pois, ...searchPois].find((p) => p.id === selectedId)?.name ?? t('poi.restore')}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setSelectedId(null);
+                setPoiMinimized(false);
+              }}
+              aria-label={t('poi.close')}
+              title={t('poi.close')}
+              className="glass-strong absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-slate-500 shadow-float transition-colors hover:brightness-105 dark:text-slate-300"
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          </div>
         </div>
       )}
 

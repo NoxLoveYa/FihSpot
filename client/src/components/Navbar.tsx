@@ -40,7 +40,7 @@ export function Navbar({ mapType, onMapTypeChange, search }: NavbarProps) {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-[1200] flex flex-wrap items-center justify-between gap-x-1 gap-y-2 px-2 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 lg:pointer-events-none lg:flex-nowrap lg:gap-2 lg:px-3 lg:pt-[max(env(safe-area-inset-top),0.75rem)] lg:pb-3">
+    <header className="fixed inset-x-0 top-0 z-[1350] flex flex-wrap items-center justify-between gap-x-1 gap-y-2 px-2 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 lg:pointer-events-none lg:flex-nowrap lg:gap-2 lg:px-3 lg:pt-[max(env(safe-area-inset-top),0.75rem)] lg:pb-3">
       <div className="flex min-w-0 items-center gap-1 lg:pointer-events-auto lg:gap-1.5">
         <button
           onClick={() => navigate('/')}
