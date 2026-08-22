@@ -82,7 +82,10 @@ router.post('/google', async (req, res, next) => {
 
     const payload = (await response.json()) as {
       sub: string;
+      aud?: string;
+      iss?: string;
       email?: string;
+      email_verified?: string | boolean;
       name?: string;
       picture?: string;
     };
@@ -91,7 +94,24 @@ router.post('/google', async (req, res, next) => {
       throw new ApiError(401, 'Invalid Google token', 'GOOGLE_TOKEN_INVALID');
     }
 
-    const email = payload.email?.toLowerCase() || `${payload.sub}@google.local`;
+    // The token must have been issued for THIS app, by Google. Without the aud
+    // check a token minted for any other OAuth client would be accepted here.
+    if (config.googleClientId && payload.aud !== config.googleClientId) {
+      throw new ApiError(401, 'Invalid Google token', 'GOOGLE_TOKEN_INVALID');
+    }
+    if (payload.iss !== 'accounts.google.com' && payload.iss !== 'https://accounts.google.com') {
+      throw new ApiError(401, 'Invalid Google token', 'GOOGLE_TOKEN_INVALID');
+    }
+
+    // Accounts are linked/looked up by email: only trust emails Google has
+    // verified. Unverified emails get an identity-scoped pseudo-email so they
+    // can never take over an existing account.
+    const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+    const email =
+      payload.email && emailVerified
+        ? payload.email.toLowerCase()
+        : `${payload.sub}@google.local`;
+
     let user = await prisma.user.findFirst({ where: { OR: [{ googleId: payload.sub }, { email }] } });
 
     if (!user) {
