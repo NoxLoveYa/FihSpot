@@ -3,20 +3,25 @@ import { prisma } from '../prisma';
 import { hashPassword, comparePassword } from '../utils/password';
 import { signToken } from '../utils/jwt';
 import { requireAuth } from '../middleware/auth';
+import { authLimiter, registerLimiter } from '../middleware/rateLimit';
 import { ApiError } from '../middleware/errorHandler';
 import { config } from '../config';
 import { publicUser } from '../utils/serialize';
 import { isAdminEmail, syncAdminRole } from '../utils/admin';
+import { assertMaxLength } from '../utils/validate';
 
 const router = Router();
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const { email, password, name } = req.body as { email?: string; password?: string; name?: string };
 
     if (!email || !password || !name) {
       throw new ApiError(400, 'Email, password and name are required', 'MISSING_FIELDS');
     }
+    assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
+    assertMaxLength('Email', 'EMAIL_TOO_LONG', 254, email);
+    assertMaxLength('Password', 'PASSWORD_TOO_LONG', 100, password);
     if (password.length < 6) {
       throw new ApiError(400, 'Password too short (minimum 6 characters)', 'PASSWORD_TOO_SHORT');
     }
@@ -41,7 +46,7 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
 
@@ -66,7 +71,7 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-router.post('/google', async (req, res, next) => {
+router.post('/google', authLimiter, async (req, res, next) => {
   try {
     const { idToken } = req.body as { idToken?: string };
 

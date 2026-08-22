@@ -10,6 +10,13 @@ interface FindInBoundsParams {
   lastComment?: boolean;
 }
 
+/**
+ * Hard ceiling on any single bounds query, even the whole-world default. The
+ * client renders the full list at once and this stays far above real usage,
+ * but it keeps an anonymous caller from pulling unbounded rows in one request.
+ */
+export const MAX_POIS_PER_QUERY = 2000;
+
 export async function findPoisInBounds({ swLat, swLng, neLat, neLng, userId, lastComment }: FindInBoundsParams) {
   const pois = await prisma.poI.findMany({
     where: {
@@ -17,6 +24,7 @@ export async function findPoisInBounds({ swLat, swLng, neLat, neLng, userId, las
       lat: { gte: swLat, lte: neLat },
       lng: { gte: swLng, lte: neLng },
     },
+    take: MAX_POIS_PER_QUERY,
     include: {
       createdBy: { select: { id: true, name: true, avatarUrl: true } },
       _count: { select: { comments: true, photos: true } },

@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
 import { hashPassword } from '../utils/password';
 import { isAdminEmail } from '../utils/admin';
+import { assertMaxLength } from '../utils/validate';
 import { deleteCommentById, deletePhotoWithFile, deletePoiWithFiles, deleteUserWithContent } from '../services/content';
 
 const router = Router();
@@ -92,6 +93,10 @@ router.patch('/users/:id', async (req, res, next) => {
 
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+
+    assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
+    assertMaxLength('Email', 'EMAIL_TOO_LONG', 254, email);
+    assertMaxLength('Password', 'PASSWORD_TOO_LONG', 100, password);
 
     const isSelf = id === req.user!.id;
     if (role && role !== 'USER' && role !== 'ADMIN') {

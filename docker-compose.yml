@@ -4,9 +4,9 @@ services:
     container_name: fihspot-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: fihspot
-      POSTGRES_PASSWORD: fihspot
-      POSTGRES_DB: fihspot
+      POSTGRES_USER: ${POSTGRES_USER:-fihspot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fihspot}
+      POSTGRES_DB: ${POSTGRES_DB:-fihspot}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     environment:
       PORT: 3000
-      DATABASE_URL: postgresql://fihspot:fihspot@db:5432/fihspot
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fihspot}:${POSTGRES_PASSWORD:-fihspot}@db:5432/${POSTGRES_DB:-fihspot}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (at least 32 characters) in .env}
       JWT_EXPIRES_IN: 7d
       CLIENT_URL: ${CLIENT_URL:-https://fihspot.com}

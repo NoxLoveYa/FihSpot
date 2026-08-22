@@ -18,7 +18,9 @@ interface SearchBarProps {
   onSelect: (lat: number, lng: number) => void;
 }
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+// Place search goes through our own backend, which proxies the geocoding
+// service — user queries and IPs never reach it directly.
+const GEOCODE_URL = '/api/geocode';
 
 export function SearchBar({ onSelect }: SearchBarProps) {
   const { t, i18n } = useTranslation();
@@ -43,7 +45,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
     const timeoutId = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `${NOMINATIM_URL}?format=jsonv2&limit=5&accept-language=${i18n.language}&q=${encodeURIComponent(query.trim())}`;
+        const url = `${GEOCODE_URL}?lang=${i18n.language}&q=${encodeURIComponent(query.trim())}`;
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) throw new ApiError(res.status, t('search.error'));
         const data = (await res.json()) as NominatimResult[];

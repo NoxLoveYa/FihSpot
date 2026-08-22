@@ -9,6 +9,21 @@
 
 fihspot.com {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Security headers for every response from the site.
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+		# - the inline theme bootstrap script in client/index.html is pinned by
+		#   its sha256 hash; regenerate it if that script ever changes
+		# - accounts.google.com: Google Identity Services button + iframe
+		# - fonts.googleapis.com / fonts.gstatic.com: Inter webfont
+		# - maps hosts + blob:: Google Maps tiles/canvas and scan previews
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-SC00jVcO5RHgNEpdPwoG5ipyT9Uh817Ik8PUlLproII=' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com; connect-src 'self' https://accounts.google.com; frame-src https://accounts.google.com blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
 	reverse_proxy client:80
 }
 

@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
-import { upload } from '../middleware/upload';
+import { upload, validateImageUpload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { unlinkUpload } from '../utils/files';
 import { publicUser } from '../utils/serialize';
 import { config } from '../config';
 
 const router = Router();
+
+// Profile content is rendered as a finite list; the cap keeps any single
+// request (including the public one) from pulling unbounded rows.
+const PROFILE_CONTENT_LIMIT = 200;
 
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
@@ -18,16 +22,19 @@ router.get('/me', requireAuth, async (req, res, next) => {
         where: { createdById: userId, ...(config.demoEnabled ? {} : { demo: false }) },
         include: { _count: { select: { comments: true, photos: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
       prisma.comment.findMany({
         where: { userId },
         include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
       prisma.photo.findMany({
         where: { userId },
         include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
     ]);
 
@@ -53,16 +60,19 @@ router.get('/users/:id', async (req, res, next) => {
         where: { createdById: user.id, ...(config.demoEnabled ? {} : { demo: false }) },
         include: { _count: { select: { comments: true, photos: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
       prisma.comment.findMany({
         where: { userId: user.id },
         include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
       prisma.photo.findMany({
         where: { userId: user.id },
         include: { poi: { select: { id: true, name: true, lat: true, lng: true } } },
         orderBy: { createdAt: 'desc' },
+        take: PROFILE_CONTENT_LIMIT,
       }),
     ]);
 
@@ -79,7 +89,7 @@ router.get('/users/:id', async (req, res, next) => {
   }
 });
 
-router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req, res, next) => {
+router.post('/me/avatar', requireAuth, upload.single('avatar'), validateImageUpload, async (req, res, next) => {
   try {
     if (!req.file) throw new ApiError(400, 'File missing', 'FILE_MISSING');
 

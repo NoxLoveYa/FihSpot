@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { config } from '../config';
 import { requireAuth, requireSearchAccess } from '../middleware/auth';
+import { scanLimiter } from '../middleware/rateLimit';
 import { ApiError } from '../middleware/errorHandler';
 
 const router = Router();
@@ -146,7 +147,7 @@ async function serveTile(req: Record<string, unknown>, res: Response) {
   }
 }
 
-router.get('/tile', requireAuth, requireSearchAccess, async (req, res, next) => {
+router.get('/tile', requireAuth, requireSearchAccess, scanLimiter, async (req, res, next) => {
   try {
     await serveTile(req.query, res);
   } catch (err) {

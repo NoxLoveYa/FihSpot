@@ -1,23 +1,29 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, requireSearchAccess, optionalAuth } from '../middleware/auth';
-import { upload } from '../middleware/upload';
+import { upload, validateImageUpload } from '../middleware/upload';
 import { ApiError } from '../middleware/errorHandler';
 import { deletePhotoWithFile, deletePoiWithFiles } from '../services/content';
 import { findPoisInBounds } from '../services/search';
 import { config } from '../config';
+import { assertMaxLength } from '../utils/validate';
 
 const router = Router();
+
+// Per-POI content ceiling for the detail payload.
+const MAX_POI_COMMENTS_PHOTOS = 200;
 
 const poiInclude = {
   createdBy: { select: { id: true, name: true, avatarUrl: true } },
   comments: {
     include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     orderBy: { createdAt: 'asc' as const },
+    take: MAX_POI_COMMENTS_PHOTOS,
   },
   photos: {
     include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     orderBy: { createdAt: 'asc' as const },
+    take: MAX_POI_COMMENTS_PHOTOS,
   },
 };
 
@@ -115,6 +121,9 @@ router.post('/', requireAuth, async (req, res, next) => {
     };
 
     if (!name?.trim()) throw new ApiError(400, 'Name is required', 'NAME_REQUIRED');
+    assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
+    assertMaxLength('Description', 'DESCRIPTION_TOO_LONG', 2000, description);
+    assertMaxLength('Category', 'CATEGORY_TOO_LONG', 50, category);
     const coords = validateCoords(lat, lng);
 
     const poi = await prisma.poI.create({
@@ -146,6 +155,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       description?: string;
       category?: string;
     };
+
+    assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
+    assertMaxLength('Description', 'DESCRIPTION_TOO_LONG', 2000, description);
+    assertMaxLength('Category', 'CATEGORY_TOO_LONG', 50, category);
 
     const updated = await prisma.poI.update({
       where: { id: poi.id },
@@ -180,6 +193,8 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const { content } = req.body as { content?: string };
     if (!content?.trim()) throw new ApiError(400, 'Comment is empty', 'COMMENT_EMPTY');
+    assertMaxLength('Comment', 'COMMENT_TOO_LONG', 1000, content);
+    if (!content?.trim()) throw new ApiError(400, 'Comment is empty', 'COMMENT_EMPTY');
 
     const poi = await prisma.poI.findUnique({ where: { id: req.params.id } });
     if (!poi) throw new ApiError(404, 'Point of interest not found', 'POI_NOT_FOUND');
@@ -213,7 +228,7 @@ router.delete('/comments/:commentId', requireAuth, async (req, res, next) => {
   }
 });
 
-router.post('/:id/photos', requireAuth, upload.single('photo'), async (req, res, next) => {
+router.post('/:id/photos', requireAuth, upload.single('photo'), validateImageUpload, async (req, res, next) => {
   try {
     if (!req.file) throw new ApiError(400, 'File missing', 'FILE_MISSING');
 

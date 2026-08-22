@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, requireSearchAccess } from '../middleware/auth';
 import { ApiError } from '../middleware/errorHandler';
+import { assertMaxLength } from '../utils/validate';
 import { findPoisInBounds, viewportBounds } from '../services/search';
 
 const router = Router();
@@ -22,6 +23,7 @@ function validateSearchInput(body: { name?: unknown; lat?: unknown; lng?: unknow
     throw new ApiError(400, 'Invalid longitude', 'INVALID_LNG');
   if (!Number.isInteger(nZoom) || nZoom < 1 || nZoom > 21)
     throw new ApiError(400, 'Invalid zoom', 'INVALID_ZOOM');
+  assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
 
   return {
     name: name || `Search at ${nLat.toFixed(3)}, ${nLng.toFixed(3)}`,
@@ -87,6 +89,7 @@ router.patch('/:id', async (req, res, next) => {
 
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
     if (!name) throw new ApiError(400, 'Name is required', 'NAME_REQUIRED');
+    assertMaxLength('Name', 'NAME_TOO_LONG', 100, name);
 
     const updated = await prisma.search.update({
       where: { id: search.id },
