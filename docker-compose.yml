@@ -27,7 +27,7 @@ services:
     environment:
       PORT: 3000
       DATABASE_URL: postgresql://fihspot:fihspot@db:5432/fihspot
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-docker}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (at least 32 characters) in .env}
       JWT_EXPIRES_IN: 7d
       CLIENT_URL: ${CLIENT_URL:-https://fihspot.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
